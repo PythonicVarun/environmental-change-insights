@@ -1,0 +1,235 @@
+:root {
+    --ink: #17222d;
+    --muted: #5a6b7a;
+    --paper: rgba(255, 251, 244, 0.9);
+    --panel: rgba(248, 242, 230, 0.94);
+    --line: rgba(23, 34, 45, 0.12);
+    --accent: #cf5c36;
+    --accent-deep: #8d2f20;
+    --sea: #99d5e3;
+    --sand: #f3d7a0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    font-family: "IBM Plex Sans", sans-serif;
+    color: var(--ink);
+    background:
+        radial-gradient(
+            circle at top left,
+            rgba(207, 92, 54, 0.18),
+            transparent 28%
+        ),
+        radial-gradient(
+            circle at bottom right,
+            rgba(153, 213, 227, 0.35),
+            transparent 24%
+        ),
+        linear-gradient(135deg, #f2eadf 0%, #efe5d6 48%, #f7f2eb 100%);
+}
+
+body {
+    min-height: 100vh;
+}
+
+.shell {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: 100vh;
+}
+
+.panel {
+    padding: 28px 22px 22px;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    backdrop-filter: blur(16px);
+    overflow-y: auto;
+}
+
+.eyebrow {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+}
+
+h1 {
+    margin: 8px 0 8px;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 2rem;
+    line-height: 1.05;
+}
+
+.subtitle {
+    margin: 0 0 18px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.controls,
+.legend-card,
+.summary-grid,
+.hotspots {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: 0 12px 28px rgba(23, 34, 45, 0.06);
+}
+
+.controls {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+label,
+.legend-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+select,
+input[type="range"] {
+    width: 100%;
+}
+
+select {
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    font: inherit;
+    background: white;
+}
+
+.period-label {
+    font-size: 0.94rem;
+    font-weight: 600;
+}
+
+.legend-card {
+    margin-bottom: 16px;
+}
+
+.legend-scale {
+    height: 14px;
+    border-radius: 999px;
+    margin: 12px 0 8px;
+    background: linear-gradient(90deg, #20384f 0%, #f5edd6 50%, #8d2f20 100%);
+}
+
+.legend-range {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat {
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+.stat-value {
+    margin-top: 4px;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1.22rem;
+}
+
+.hotspots {
+    display: grid;
+    gap: 10px;
+}
+
+.hotspot {
+    border-left: 4px solid var(--accent);
+    padding-left: 10px;
+}
+
+.hotspot-title {
+    font-weight: 700;
+}
+
+.hotspot-meta {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.map-wrap {
+    position: relative;
+    padding: 18px;
+}
+
+#map {
+    width: 100%;
+    min-height: calc(100vh - 36px);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 22px 42px rgba(23, 34, 45, 0.16);
+}
+
+#map.no-basemap {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(207, 92, 54, 0.12),
+            rgba(31, 110, 140, 0.16)
+        ),
+        repeating-linear-gradient(
+            45deg,
+            rgba(23, 34, 45, 0.03) 0,
+            rgba(23, 34, 45, 0.03) 10px,
+            rgba(255, 255, 255, 0.08) 10px,
+            rgba(255, 255, 255, 0.08) 20px
+        ),
+        #efe5d6;
+}
+
+.leaflet-container {
+    font-family: "IBM Plex Sans", sans-serif;
+}
+
+.map-tooltip {
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 980px) {
+    .shell {
+        grid-template-columns: 1fr;
+    }
+
+    .panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    #map {
+        min-height: 70vh;
+    }
+}

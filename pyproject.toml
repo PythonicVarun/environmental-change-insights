@@ -1,0 +1,47 @@
+[project]
+name = "environmental-change-insights"
+version = "0.1.0"
+description = "OlmoEarth-based geospatial change analysis and map overlays"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "geopandas>=1.1.1",
+    "numpy>=1.26.4",
+    "olmoearth-pretrain>=0.1.0",
+    "pandas>=2.2.3",
+    "planetary-computer>=1.0.0",
+    "pyproj>=3.7.1",
+    "pystac-client>=0.9.0",
+    "rasterio>=1.4.3",
+    "shapely>=2.0.7",
+    "stackstac>=0.5.1",
+    "torch>=2.7,<2.8",
+    "tqdm>=4.67.1",
+    "xarray>=2025.3.1",
+]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+    "isort>=8.0.1",
+    "ruff>=0.15.11",
+    "ty>=0.0.32",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ty.environment]
+python = ".venv"
