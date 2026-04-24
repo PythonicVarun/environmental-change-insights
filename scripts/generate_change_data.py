@@ -42,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip WorldPop population overlays if you want the fastest possible run.",
     )
     parser.add_argument(
+        "--skip-pollution",
+        action="store_true",
+        help="Skip the Sentinel-2 aerosol pollution proxy if you want the fastest possible run.",
+    )
+    parser.add_argument(
         "--skip-wards",
         action="store_true",
         help="Skip ward-level overlay generation and keep only the cell overlay.",
@@ -75,6 +80,7 @@ def main() -> None:
         max_tiles=args.max_tiles,
         device=args.device,
         include_population=not args.skip_population,
+        include_pollution=not args.skip_pollution,
         include_ward_overlay=not args.skip_wards,
     )
     summary = run_analysis(config)

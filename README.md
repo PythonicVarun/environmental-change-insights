@@ -54,6 +54,7 @@ Useful runtime controls:
 - `--model tiny` for the best CPU tradeoff
 - `--display-aggregation 4` to keep the UI responsive
 - `--skip-population` if you want the fastest possible run and do not need WorldPop
+- `--skip-pollution` if you want to skip the Sentinel-2 aerosol pollution proxy
 - `--skip-wards` if you want to skip OSM ward aggregation and keep only cell overlays
 
 For a boundary-shaped final map, do not use `--max-tiles`. That flag intentionally processes only the top overlap tiles, which is useful for fast smoke tests but not for a complete district/state overlay.
@@ -75,7 +76,7 @@ The UI includes:
 
 - basemap selector for OSM, light basemap, imagery, or no basemap
 - analysis-unit switcher for cell overlays and ward overlays when ward boundaries are available
-- metric selector for embedding shift, vegetation, water, urbanization, bare soil, and population delta
+- metric selector for embedding shift, vegetation, water, urbanization, bare soil, pollution proxy, and population delta
 - period slider for 1y / 5y / 10y comparisons
 - color-scaled overlays on a Leaflet base map
 - hotspot cards sourced from the generated summary
@@ -107,13 +108,15 @@ For each requested year snapshot, the pipeline:
 4. Computes OlmoEarth embeddings locally with the open `olmoearth-pretrain` model.
 5. Derives interpretable spectral deltas:
    `NDVI`, `MNDWI`, `NDBI`, and `BSI`.
-6. Downloads WorldPop 1km constrained population rasters for supported years (`2015`-`2030`)
+6. Derives a pollution proxy from Sentinel-2 L2A `AOT` (aerosol optical thickness), which is
+   useful for aerosol loading changes but is not direct PM2.5 or gas concentration.
+7. Downloads WorldPop 1km constrained population rasters for supported years (`2015`-`2030`)
    and allocates those counts into the display cells.
-7. Optionally resolves OSM ward-like administrative polygons for the selected district and
+8. Optionally resolves OSM ward-like administrative polygons for the selected district and
    aggregates cell metrics into ward polygons.
-8. Writes overlay cells with per-period properties like:
+9. Writes overlay cells with per-period properties like:
    `embedding_change_5y`, `vegetation_delta_5y`, `water_delta_5y`, `urban_delta_5y`,
-   `population_delta_5y`, plus a `ward_overlay.geojson` when ward boundaries are available.
+   `pollution_delta_5y`, `population_delta_5y`, plus a `ward_overlay.geojson` when ward boundaries are available.
 
 > [!NOTE]
 > the map uses **embedding L2 shift** as the main OlmoEarth change score because annual OlmoEarth vectors can stay nearly parallel across time, which makes cosine distance too flat for an interactive overlay.

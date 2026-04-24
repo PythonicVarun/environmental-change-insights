@@ -4,6 +4,7 @@ const metricOptions = [
     { key: "water_delta", label: "Water Delta" },
     { key: "urban_delta", label: "Urbanization Delta" },
     { key: "bare_soil_delta", label: "Bare Soil Delta" },
+    { key: "pollution_delta", label: "Pollution Proxy Delta" },
     { key: "population_delta", label: "Population Delta" },
 ];
 
@@ -13,6 +14,7 @@ const metricColorStops = {
     water_delta: ["#7b4a26", "#f3efe7", "#1f6e8c"],
     urban_delta: ["#2f5d50", "#f1efe8", "#c65d19"],
     bare_soil_delta: ["#2f6b84", "#f7f1dd", "#8b5e34"],
+    pollution_delta: ["#355c7d", "#f2efe7", "#7f2704"],
     population_delta: ["#3f6791", "#f4efe5", "#bc5a2e"],
 };
 
@@ -213,6 +215,12 @@ function updateSummaryCards() {
         ["Mean Vegetation", formatNumber(metrics.vegetation_delta_mean ?? 0)],
         ["Mean Urban", formatNumber(metrics.urban_delta_mean ?? 0)],
     ];
+    if (metrics.pollution_delta_mean !== undefined) {
+        entries.push([
+            "Mean Pollution",
+            formatNumber(metrics.pollution_delta_mean ?? 0),
+        ]);
+    }
     if (metrics.population_delta_total !== undefined) {
         entries.push([
             "Population Delta",
@@ -253,6 +261,12 @@ function updateSummaryCards() {
             Veg ${formatNumber(spot.vegetation_delta)} |
             Water ${formatNumber(spot.water_delta)} |
             Urban ${formatNumber(spot.urban_delta)}
+            ${
+                spot.pollution_delta !== undefined &&
+                spot.pollution_delta !== null
+                    ? `<br />Pollution ${formatNumber(spot.pollution_delta)}`
+                    : ""
+            }
             ${
                 spot.population_delta !== undefined
                     ? `<br />Pop ${formatPopulation(spot.population_delta)} | ${formatPercent(spot.population_pct_change, 1)}`
@@ -311,10 +325,15 @@ function buildTooltip(properties) {
     const period = currentPeriodKey();
     const populationDelta = properties[`population_delta_${period}`];
     const populationPct = properties[`population_pct_change_${period}`];
+    const pollutionDelta = properties[`pollution_delta_${period}`];
     const coverageLine =
         properties.coverage_percent !== undefined
             ? `Coverage: ${formatPercent(properties.coverage_percent, 1)}<br />`
             : "";
+    const pollutionLine =
+        pollutionDelta === undefined || pollutionDelta === null
+            ? ""
+            : `Pollution Proxy: ${formatNumber(pollutionDelta)}<br />`;
     const populationLine =
         populationDelta === undefined || populationDelta === null
             ? ""
@@ -334,6 +353,7 @@ function buildTooltip(properties) {
       Water: ${formatNumber(properties[`water_delta_${period}`] ?? 0)}<br />
       Urban: ${formatNumber(properties[`urban_delta_${period}`] ?? 0)}<br />
       Bare Soil: ${formatNumber(properties[`bare_soil_delta_${period}`] ?? 0)}<br />
+      ${pollutionLine}
       ${populationLine}
     </div>
   `;

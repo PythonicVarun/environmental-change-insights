@@ -64,6 +64,10 @@ WORLDPOP_VERSION = "v1"
 WORLDPOP_SOURCE_LABEL = "WorldPop Global 2 constrained 1km population counts"
 WORLDPOP_CITATION_URL = "https://www.worldpop.org/methods/populations/"
 WORLDPOP_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
+POLLUTION_SOURCE_LABEL = "Sentinel-2 L2A AOT aerosol optical thickness proxy"
+POLLUTION_CITATION_URL = (
+    "https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html"
+)
 
 
 @dataclass(frozen=True)
@@ -86,6 +90,7 @@ class AnalysisConfig:
     max_tiles: int | None = None
     device: str = "auto"
     include_population: bool = True
+    include_pollution: bool = True
     include_ward_overlay: bool = True
     save_composites: bool = True
     save_embedding_change_rasters: bool = True
@@ -115,6 +120,7 @@ class TileYearData:
     ndbi_display: np.ndarray
     bsi_display: np.ndarray
     population_display: np.ndarray | None
+    pollution_display: np.ndarray | None
     scene_count: int
 
 
@@ -139,6 +145,13 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         metadata["population_source"] = WORLDPOP_SOURCE_LABEL
         metadata["population_citation_url"] = WORLDPOP_CITATION_URL
         metadata["population_license_url"] = WORLDPOP_LICENSE_URL
+    if config.include_pollution:
+        metadata["pollution_source"] = POLLUTION_SOURCE_LABEL
+        metadata["pollution_citation_url"] = POLLUTION_CITATION_URL
+        metadata["pollution_note"] = (
+            "Pollution uses Sentinel-2 aerosol optical thickness as an annual aerosol proxy, "
+            "not direct PM2.5 or gas concentration."
+        )
     write_boundary_geojson(boundary, config.output_dir / "boundary.geojson")
 
     tiles = build_tiles(boundary, config)
@@ -259,6 +272,7 @@ def process_tile_year(
     year_dir = config.output_dir / "years" / str(year)
     year_dir.mkdir(parents=True, exist_ok=True)
     composite_path = year_dir / f"{tile_id}_composite.tif"
+    pollution_path = year_dir / f"{tile_id}_pollution_proxy.tif"
 
     if composite_path.exists():
         composite, transform, crs = read_raster(composite_path)
@@ -310,6 +324,29 @@ def process_tile_year(
             year=year,
             cache_dir=config.cache_dir,
         )
+    pollution_display = None
+    if config.include_pollution:
+        if pollution_path.exists():
+            pollution_array, _, _ = read_raster(pollution_path)
+            pollution = pollution_array[0]
+        else:
+            pollution_data = fetch_sentinel2_aot_composite(
+                tile_geometry=tile_geometry,
+                tile_crs=tile_crs,
+                year=year,
+                config=config,
+            )
+            pollution = None
+            if pollution_data is not None:
+                pollution, pollution_transform, pollution_crs, _ = pollution_data
+                write_single_band_raster(
+                    pollution_path,
+                    pollution,
+                    pollution_transform,
+                    pollution_crs,
+                )
+        if pollution is not None:
+            pollution_display = downsample_mean(pollution, display_factor)
 
     return TileYearData(
         tile_id=tile_id,
@@ -324,6 +361,7 @@ def process_tile_year(
         ndbi_display=ndbi_display,
         bsi_display=bsi_display,
         population_display=population_display,
+        pollution_display=pollution_display,
         scene_count=scene_count,
     )
 
@@ -335,28 +373,13 @@ def fetch_sentinel2_composite(
     year: int,
     config: AnalysisConfig,
 ) -> tuple[np.ndarray, Affine, str, int] | None:
-    catalog = planetary_catalog()
     bounds = tile_geometry.bounds
-    bbox_latlon = (
-        gpd.GeoSeries([tile_geometry], crs=tile_crs)
-        .to_crs("EPSG:4326")
-        .total_bounds.tolist()
+    items = search_sentinel2_items(
+        tile_geometry=tile_geometry,
+        tile_crs=tile_crs,
+        year=year,
+        config=config,
     )
-    datetime_range = f"{year}-01-01/{year}-12-31"
-
-    items = None
-    for cloud_cap in [config.cloud_max, 60, 80]:
-        search = catalog.search(
-            collections=["sentinel-2-l2a"],
-            bbox=bbox_latlon,
-            datetime=datetime_range,
-            query={"eo:cloud_cover": {"lt": cloud_cap}},
-        )
-        found = list(search.items())
-        if found:
-            items = found
-            break
-
     if not items:
         return None
 
@@ -388,6 +411,79 @@ def fetch_sentinel2_composite(
         config.resolution_m,
     )
     return array, transform, f"EPSG:{epsg}", len(items)
+
+
+def fetch_sentinel2_aot_composite(
+    *,
+    tile_geometry: BaseGeometry,
+    tile_crs: str,
+    year: int,
+    config: AnalysisConfig,
+) -> tuple[np.ndarray, Affine, str, int] | None:
+    items = search_sentinel2_items(
+        tile_geometry=tile_geometry,
+        tile_crs=tile_crs,
+        year=year,
+        config=config,
+    )
+    if not items:
+        return None
+
+    bounds = tile_geometry.bounds
+    epsg = int(str(tile_crs).split(":")[-1])
+    stack = stackstac.stack(
+        items,
+        assets=["AOT"],
+        bounds=bounds,
+        resolution=config.resolution_m,
+        epsg=epsg,
+        dtype=np.float64,
+        rescale=False,
+        fill_value=np.nan,
+        chunksize=512,
+    )
+    median = stack.median(dim="time", skipna=True).compute()
+    aot = median.values.astype(np.float32)[0] / 1000.0
+    aot = np.clip(aot, 0.0, 2.0)
+    if config.fill_holes_pixels > 0:
+        aot = fill_holes(aot[None, ...], config.fill_holes_pixels)[0]
+
+    x = median.x.values
+    y = median.y.values
+    transform = from_origin(
+        float(np.min(x) - config.resolution_m / 2.0),
+        float(np.max(y) + config.resolution_m / 2.0),
+        config.resolution_m,
+        config.resolution_m,
+    )
+    return aot, transform, f"EPSG:{epsg}", len(items)
+
+
+def search_sentinel2_items(
+    *,
+    tile_geometry: BaseGeometry,
+    tile_crs: str,
+    year: int,
+    config: AnalysisConfig,
+) -> list[Any] | None:
+    catalog = planetary_catalog()
+    bbox_latlon = (
+        gpd.GeoSeries([tile_geometry], crs=tile_crs)
+        .to_crs("EPSG:4326")
+        .total_bounds.tolist()
+    )
+    datetime_range = f"{year}-01-01/{year}-12-31"
+    for cloud_cap in [config.cloud_max, 60, 80]:
+        search = catalog.search(
+            collections=["sentinel-2-l2a"],
+            bbox=bbox_latlon,
+            datetime=datetime_range,
+            query={"eo:cloud_cover": {"lt": cloud_cap}},
+        )
+        found = list(search.items())
+        if found:
+            return found
+    return None
 
 
 def compute_embeddings(
@@ -499,6 +595,10 @@ def build_overlay(
             ):
                 period_metrics[period]["population_base"] = base.population_display
                 period_metrics[period]["population_ref"] = ref.population_display
+            if base.pollution_display is not None and ref.pollution_display is not None:
+                period_metrics[period]["pollution"] = (
+                    base.pollution_display - ref.pollution_display
+                )
 
             if config.save_embedding_change_rasters:
                 write_single_band_raster(
@@ -545,6 +645,13 @@ def build_overlay(
                     feature[f"water_delta_{period}y"] = round(mndwi_value, 6)
                     feature[f"urban_delta_{period}y"] = round(ndbi_value, 6)
                     feature[f"bare_soil_delta_{period}y"] = round(bsi_value, 6)
+                    if "pollution" in period_metrics[period]:
+                        pollution_value = float(
+                            period_metrics[period]["pollution"][row_idx, col_idx]
+                        )
+                        feature[f"pollution_delta_{period}y"] = round(
+                            pollution_value, 6
+                        )
                     if "population_base" in period_metrics[period]:
                         population_base = (
                             float(
@@ -620,6 +727,7 @@ def build_ward_overlay(
                 f"water_delta_{period}y",
                 f"urban_delta_{period}y",
                 f"bare_soil_delta_{period}y",
+                f"pollution_delta_{period}y",
             ]
         )
         sum_metric_columns.extend(
@@ -792,23 +900,26 @@ def build_summary(
 
         hotspots = frame.sort_values(key, ascending=False).head(8)
         period_key = f"{period}y"
+        metrics = {
+            "embedding_change_median": round(float(frame[key].median()), 6),
+            "embedding_change_p95": round(float(frame[key].quantile(0.95)), 6),
+            "vegetation_delta_mean": round(
+                float(frame[f"vegetation_delta_{period}y"].mean()), 6
+            ),
+            "water_delta_mean": round(float(frame[f"water_delta_{period}y"].mean()), 6),
+            "urban_delta_mean": round(float(frame[f"urban_delta_{period}y"].mean()), 6),
+            "bare_soil_delta_mean": round(
+                float(frame[f"bare_soil_delta_{period}y"].mean()), 6
+            ),
+        }
+        pollution_column = f"pollution_delta_{period}y"
+        if pollution_column in frame.columns:
+            metrics["pollution_delta_mean"] = round(
+                float(frame[pollution_column].mean()), 6
+            )
+
         periods[period_key] = {
-            "metrics": {
-                "embedding_change_median": round(float(frame[key].median()), 6),
-                "embedding_change_p95": round(float(frame[key].quantile(0.95)), 6),
-                "vegetation_delta_mean": round(
-                    float(frame[f"vegetation_delta_{period}y"].mean()), 6
-                ),
-                "water_delta_mean": round(
-                    float(frame[f"water_delta_{period}y"].mean()), 6
-                ),
-                "urban_delta_mean": round(
-                    float(frame[f"urban_delta_{period}y"].mean()), 6
-                ),
-                "bare_soil_delta_mean": round(
-                    float(frame[f"bare_soil_delta_{period}y"].mean()), 6
-                ),
-            },
+            "metrics": metrics,
             "story_counts": frame[f"story_{period}y"].value_counts().to_dict(),
             "hotspots": [
                 {
@@ -824,6 +935,15 @@ def build_summary(
                     "urban_delta": round(float(row[f"urban_delta_{period}y"]), 6),
                     "bare_soil_delta": round(
                         float(row[f"bare_soil_delta_{period}y"]), 6
+                    ),
+                    "pollution_delta": (
+                        round(clean_number(row[pollution_column]), 6)
+                        if pollution_column in frame.columns
+                        and not (
+                            isinstance(row[pollution_column], (float, np.floating))
+                            and np.isnan(row[pollution_column])
+                        )
+                        else None
                     ),
                     "story": str(row[f"story_{period}y"]),
                     "tile_id": str(row["tile_id"]),
@@ -904,6 +1024,7 @@ def build_summary(
             "model_name": config.model_name,
             "tile_size_m": config.tile_size_m,
             "include_population": config.include_population,
+            "include_pollution": config.include_pollution,
             "display_cell_size_m": config.patch_size
             * config.display_aggregation
             * config.resolution_m,
@@ -927,6 +1048,11 @@ def render_report(summary: dict[str, Any]) -> str:
     ]
     for period_key, period_summary in summary["periods"].items():
         metrics = period_summary["metrics"]
+        pollution_clause = ""
+        if "pollution_delta_mean" in metrics:
+            pollution_clause = (
+                f" | pollution proxy delta: {metrics['pollution_delta_mean']:.4f}"
+            )
         lines.extend(
             [
                 f"## {period_key} View",
@@ -940,6 +1066,7 @@ def render_report(summary: dict[str, Any]) -> str:
                     f" | water delta: {metrics['water_delta_mean']:.4f}"
                     f" | urban delta: {metrics['urban_delta_mean']:.4f}"
                     f" | bare-soil delta: {metrics['bare_soil_delta_mean']:.4f}"
+                    f"{pollution_clause}"
                 ),
             ]
         )
@@ -964,18 +1091,24 @@ def render_report(summary: dict[str, Any]) -> str:
         )
         for hotspot in period_summary["hotspots"][:5]:
             population_clause = ""
+            hotspot_pollution_clause = ""
             if "population_delta" in hotspot:
                 population_pct = hotspot.get("population_pct_change")
                 population_pct_text = (
                     f"{population_pct:.2f}%" if population_pct is not None else "n/a"
                 )
                 population_clause = f", population {hotspot['population_delta']:.2f} ({population_pct_text})"
+            if hotspot.get("pollution_delta") is not None:
+                hotspot_pollution_clause = (
+                    f", pollution {hotspot['pollution_delta']:.4f}"
+                )
             lines.append(
                 (
                     f"- Hotspot near ({hotspot['latitude']}, {hotspot['longitude']}): "
                     f"{hotspot['story']} | embedding {hotspot['embedding_change']:.4f}, "
                     f"veg {hotspot['vegetation_delta']:.4f}, water {hotspot['water_delta']:.4f}, "
                     f"urban {hotspot['urban_delta']:.4f}, bare soil {hotspot['bare_soil_delta']:.4f}"
+                    f"{hotspot_pollution_clause}"
                     f"{population_clause}"
                 )
             )
@@ -985,7 +1118,7 @@ def render_report(summary: dict[str, Any]) -> str:
 
 def copy_ui_bundle(output_dir: Path) -> None:
     source_dir = Path(__file__).resolve().parents[2] / "app"
-    target_dir = output_dir
+    target_dir = output_dir / "ui"
     target_dir.mkdir(parents=True, exist_ok=True)
     for name in ["index.html", "app.js", "styles.css"]:
         shutil.copy2(source_dir / name, target_dir / name)
