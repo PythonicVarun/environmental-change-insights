@@ -17,7 +17,16 @@
             "title": "Mahe 1-Year Smoke Run",
             "group": "Pilot",
             "badge": "Fast Demo",
-            "path":     "outputs/smoke-mahe-1y",
+            "path": "outputs/smoke-mahe-1y",
+            "description": "Quick 1-year pilot over Mahe district in Puducherry.",
+            "tags": ["India", "Puducherry", "Mahe", "1y", "Pilot", "Coastal"]
+        },
+        {
+            "id": "smoke-mahe-1y-v2",
+            "title": "Mahe 1-Year Smoke Run v2",
+            "group": "Pilot",
+            "badge": "Fast Demo",
+            "path": "outputs/smoke-mahe-1y-v2",
             "description": "Quick 1-year pilot over Mahe district in Puducherry.",
             "tags": ["India", "Puducherry", "Mahe", "1y", "Pilot", "Coastal"]
         }

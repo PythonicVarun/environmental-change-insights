@@ -234,8 +234,7 @@ function buildSubtitle(summary) {
 
     return (
         `${baseText} Basemap is off because this page is running from ` +
-        `\`file://\` or was opened with \`?basemap=none\`. ` +
-        `Serve the folder over http(s), like \`python -m http.server\`, to use OpenStreetMap tiles with a valid Referer.`
+        `\`file://\` or was opened with \`?basemap=none\`. `
     );
 }
 
