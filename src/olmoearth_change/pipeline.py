@@ -6,6 +6,8 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import geopandas as gpd
 import numpy as np
@@ -22,6 +24,7 @@ from olmoearth_pretrain.datatypes import MaskedOlmoEarthSample, MaskValue
 from olmoearth_pretrain.model_loader import ModelID, load_model_from_id
 from pystac_client import Client
 from rasterio.transform import from_origin
+from rasterio.windows import Window, from_bounds
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 from tqdm import tqdm
@@ -50,6 +53,14 @@ NIR_IDX = 3
 SWIR1_IDX = 8
 SWIR2_IDX = 9
 
+WORLDPOP_MIN_YEAR = 2015
+WORLDPOP_MAX_YEAR = 2030
+WORLDPOP_RELEASE = "R2025A"
+WORLDPOP_VERSION = "v1"
+WORLDPOP_SOURCE_LABEL = "WorldPop Global 2 constrained 1km population counts"
+WORLDPOP_CITATION_URL = "https://www.worldpop.org/methods/populations/"
+WORLDPOP_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
+
 
 @dataclass(frozen=True)
 class AnalysisConfig:
@@ -70,6 +81,7 @@ class AnalysisConfig:
     fill_holes_pixels: int = 48
     max_tiles: int | None = None
     device: str = "auto"
+    include_population: bool = True
     save_composites: bool = True
     save_embedding_change_rasters: bool = True
 
@@ -97,6 +109,7 @@ class TileYearData:
     mndwi_display: np.ndarray
     ndbi_display: np.ndarray
     bsi_display: np.ndarray
+    population_display: np.ndarray | None
     scene_count: int
 
 
@@ -117,6 +130,10 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         "area_sq_km": boundary.area_sq_km,
         "generated_at_utc": date.today().strftime("%Y-%m-%d"),
     }
+    if config.include_population:
+        metadata["population_source"] = WORLDPOP_SOURCE_LABEL
+        metadata["population_citation_url"] = WORLDPOP_CITATION_URL
+        metadata["population_license_url"] = WORLDPOP_LICENSE_URL
     write_boundary_geojson(boundary, config.output_dir / "boundary.geojson")
 
     tiles = build_tiles(boundary, config)
@@ -261,6 +278,17 @@ def process_tile_year(
     mndwi_display = downsample_mean(mndwi(composite), display_factor)
     ndbi_display = downsample_mean(ndbi(composite), display_factor)
     bsi_display = downsample_mean(bsi(composite), display_factor)
+    population_display = None
+    if config.include_population:
+        population_display = fetch_population_display(
+            tile_geometry=tile_geometry,
+            tile_crs=tile_crs,
+            display_transform=display_transform,
+            display_shape=ndvi_display.shape,
+            country_iso3=boundary.country_iso3,
+            year=year,
+            cache_dir=config.cache_dir,
+        )
 
     return TileYearData(
         tile_id=tile_id,
@@ -274,6 +302,7 @@ def process_tile_year(
         mndwi_display=mndwi_display,
         ndbi_display=ndbi_display,
         bsi_display=bsi_display,
+        population_display=population_display,
         scene_count=scene_count,
     )
 
@@ -443,6 +472,12 @@ def build_overlay(
                 "ndbi": base.ndbi_display - ref.ndbi_display,
                 "bsi": base.bsi_display - ref.bsi_display,
             }
+            if (
+                base.population_display is not None
+                and ref.population_display is not None
+            ):
+                period_metrics[period]["population_base"] = base.population_display
+                period_metrics[period]["population_ref"] = ref.population_display
 
             if config.save_embedding_change_rasters:
                 write_single_band_raster(
@@ -465,6 +500,7 @@ def build_overlay(
                 clipped_geom = cell_geom.intersection(boundary_geom_proj)
                 if clipped_geom.is_empty or clipped_geom.area <= 0:
                     continue
+                coverage_fraction = clipped_geom.area / max(cell_geom.area, 1e-9)
                 feature: dict[str, Any] = {
                     "tile_id": str(tile.tile_id),
                     "row": row_idx,
@@ -488,6 +524,38 @@ def build_overlay(
                     feature[f"water_delta_{period}y"] = round(mndwi_value, 6)
                     feature[f"urban_delta_{period}y"] = round(ndbi_value, 6)
                     feature[f"bare_soil_delta_{period}y"] = round(bsi_value, 6)
+                    if "population_base" in period_metrics[period]:
+                        population_base = (
+                            float(
+                                period_metrics[period]["population_base"][
+                                    row_idx, col_idx
+                                ]
+                            )
+                            * coverage_fraction
+                        )
+                        population_ref = (
+                            float(
+                                period_metrics[period]["population_ref"][
+                                    row_idx, col_idx
+                                ]
+                            )
+                            * coverage_fraction
+                        )
+                        population_delta = population_base - population_ref
+                        feature[f"population_base_{period}y"] = round(
+                            population_base, 6
+                        )
+                        feature[f"population_reference_{period}y"] = round(
+                            population_ref, 6
+                        )
+                        feature[f"population_delta_{period}y"] = round(
+                            population_delta, 6
+                        )
+                        feature[f"population_pct_change_{period}y"] = (
+                            round(100.0 * population_delta / population_ref, 6)
+                            if population_ref > 1e-6
+                            else None
+                        )
                     feature[f"story_{period}y"] = classify_story(
                         ndvi_delta=ndvi_value,
                         water_delta=mndwi_value,
@@ -517,7 +585,8 @@ def build_summary(
             continue
 
         hotspots = frame.sort_values(key, ascending=False).head(8)
-        periods[f"{period}y"] = {
+        period_key = f"{period}y"
+        periods[period_key] = {
             "metrics": {
                 "embedding_change_median": round(float(frame[key].median()), 6),
                 "embedding_change_p95": round(float(frame[key].quantile(0.95)), 6),
@@ -556,6 +625,63 @@ def build_summary(
                 for _, row in hotspots.iterrows()
             ],
         }
+        population_delta_key = f"population_delta_{period}y"
+        if population_delta_key in frame.columns:
+            population_base_key = f"population_base_{period}y"
+            population_reference_key = f"population_reference_{period}y"
+            population_base_total = float(frame[population_base_key].fillna(0.0).sum())
+            population_reference_total = float(
+                frame[population_reference_key].fillna(0.0).sum()
+            )
+            population_delta_total = float(
+                frame[population_delta_key].fillna(0.0).sum()
+            )
+            periods[period_key]["metrics"].update(
+                {
+                    "population_base_total": round(population_base_total, 3),
+                    "population_reference_total": round(population_reference_total, 3),
+                    "population_delta_total": round(population_delta_total, 3),
+                    "population_delta_mean": round(
+                        float(frame[population_delta_key].fillna(0.0).mean()),
+                        6,
+                    ),
+                    "population_pct_change_total": (
+                        round(
+                            100.0 * population_delta_total / population_reference_total,
+                            3,
+                        )
+                        if population_reference_total > 1e-6
+                        else None
+                    ),
+                }
+            )
+            for hotspot, (_, row) in zip(
+                periods[period_key]["hotspots"], hotspots.iterrows()
+            ):
+                population_delta = row.get(population_delta_key, 0.0)
+                population_delta_value = (
+                    0.0
+                    if population_delta is None
+                    or (
+                        isinstance(population_delta, (float, np.floating))
+                        and np.isnan(population_delta)
+                    )
+                    else float(population_delta)
+                )
+                hotspot["population_delta"] = round(
+                    population_delta_value,
+                    6,
+                )
+                population_pct = row.get(f"population_pct_change_{period}y")
+                hotspot["population_pct_change"] = (
+                    round(float(population_pct), 6)
+                    if population_pct is not None
+                    and not (
+                        isinstance(population_pct, (float, np.floating))
+                        and np.isnan(population_pct)
+                    )
+                    else None
+                )
 
     scene_counts: dict[str, int] = {}
     for year, tile_dict in year_results.items():
@@ -571,6 +697,7 @@ def build_summary(
             "periods": list(config.periods),
             "model_name": config.model_name,
             "tile_size_m": config.tile_size_m,
+            "include_population": config.include_population,
             "display_cell_size_m": config.patch_size
             * config.display_aggregation
             * config.resolution_m,
@@ -608,17 +735,42 @@ def render_report(summary: dict[str, Any]) -> str:
                     f" | urban delta: {metrics['urban_delta_mean']:.4f}"
                     f" | bare-soil delta: {metrics['bare_soil_delta_mean']:.4f}"
                 ),
+            ]
+        )
+        if "population_delta_total" in metrics:
+            population_pct = metrics.get("population_pct_change_total")
+            population_pct_text = (
+                f"{population_pct:.2f}%" if population_pct is not None else "n/a"
+            )
+            lines.append(
+                (
+                    f"- Population total: {metrics['population_reference_total']:.1f}"
+                    f" -> {metrics['population_base_total']:.1f}"
+                    f" | delta: {metrics['population_delta_total']:.1f}"
+                    f" | pct: {population_pct_text}"
+                )
+            )
+        lines.extend(
+            [
                 f"- Dominant stories: {', '.join(f'{k} ({v})' for k, v in period_summary['story_counts'].items())}",
                 "",
             ]
         )
         for hotspot in period_summary["hotspots"][:5]:
+            population_clause = ""
+            if "population_delta" in hotspot:
+                population_pct = hotspot.get("population_pct_change")
+                population_pct_text = (
+                    f"{population_pct:.2f}%" if population_pct is not None else "n/a"
+                )
+                population_clause = f", population {hotspot['population_delta']:.2f} ({population_pct_text})"
             lines.append(
                 (
                     f"- Hotspot near ({hotspot['latitude']}, {hotspot['longitude']}): "
                     f"{hotspot['story']} | embedding {hotspot['embedding_change']:.4f}, "
                     f"veg {hotspot['vegetation_delta']:.4f}, water {hotspot['water_delta']:.4f}, "
                     f"urban {hotspot['urban_delta']:.4f}, bare soil {hotspot['bare_soil_delta']:.4f}"
+                    f"{population_clause}"
                 )
             )
         lines.append("")
@@ -728,6 +880,106 @@ def fill_holes(array: np.ndarray, max_distance: int) -> np.ndarray:
     return filled
 
 
+def fetch_population_display(
+    *,
+    tile_geometry: BaseGeometry,
+    tile_crs: str,
+    display_transform: Affine,
+    display_shape: tuple[int, int],
+    country_iso3: str,
+    year: int,
+    cache_dir: Path,
+) -> np.ndarray | None:
+    if year < WORLDPOP_MIN_YEAR or year > WORLDPOP_MAX_YEAR:
+        return None
+
+    population_path = ensure_worldpop_population_raster(
+        country_iso3=country_iso3,
+        year=year,
+        cache_dir=cache_dir,
+    )
+    tile_bounds = (
+        gpd.GeoSeries([tile_geometry], crs=tile_crs)
+        .to_crs("EPSG:4326")
+        .total_bounds.tolist()
+    )
+    with rasterio.open(population_path) as src:
+        raw_window = from_bounds(*tile_bounds, transform=src.transform)
+        if raw_window.width <= 0 or raw_window.height <= 0:
+            return np.zeros(display_shape, dtype=np.float32)
+        full_window = Window(col_off=0, row_off=0, width=src.width, height=src.height)
+        clipped_window = raw_window.intersection(full_window)
+        col_off = max(0, math.floor(clipped_window.col_off))
+        row_off = max(0, math.floor(clipped_window.row_off))
+        col_end = min(
+            src.width,
+            math.ceil(clipped_window.col_off + clipped_window.width),
+        )
+        row_end = min(
+            src.height,
+            math.ceil(clipped_window.row_off + clipped_window.height),
+        )
+        if col_end <= col_off or row_end <= row_off:
+            return np.zeros(display_shape, dtype=np.float32)
+        window = Window(
+            col_off=col_off,
+            row_off=row_off,
+            width=col_end - col_off,
+            height=row_end - row_off,
+        )
+        data = src.read(1, window=window, masked=True).astype(np.float32)
+        window_transform = src.window_transform(window)
+
+    valid = (~np.ma.getmaskarray(data)) & np.isfinite(data) & (data > 0)
+    if not np.any(valid):
+        return np.zeros(display_shape, dtype=np.float32)
+
+    pixel_indices = np.argwhere(valid)
+    source_geometries = [
+        pixel_polygon(window_transform, int(row_idx), int(col_idx))
+        for row_idx, col_idx in pixel_indices
+    ]
+    source_values = [
+        float(data[row_idx, col_idx]) for row_idx, col_idx in pixel_indices
+    ]
+    projected_geometries = (
+        gpd.GeoSeries(source_geometries, crs="EPSG:4326").to_crs(tile_crs).tolist()
+    )
+
+    display_cells = [
+        [
+            pixel_polygon(display_transform, row_idx, col_idx)
+            for col_idx in range(display_shape[1])
+        ]
+        for row_idx in range(display_shape[0])
+    ]
+    population_display = np.zeros(display_shape, dtype=np.float32)
+    for pixel_geom, pixel_value in zip(projected_geometries, source_values):
+        pixel_area = pixel_geom.area
+        if pixel_area <= 0:
+            continue
+        minx, miny, maxx, maxy = pixel_geom.bounds
+        for row_idx in range(display_shape[0]):
+            for col_idx in range(display_shape[1]):
+                cell_geom = display_cells[row_idx][col_idx]
+                cell_minx, cell_miny, cell_maxx, cell_maxy = cell_geom.bounds
+                if (
+                    cell_maxx <= minx
+                    or cell_minx >= maxx
+                    or cell_maxy <= miny
+                    or cell_miny >= maxy
+                ):
+                    continue
+                intersection_area = pixel_geom.intersection(cell_geom).area
+                if intersection_area <= 0:
+                    continue
+                population_display[row_idx, col_idx] += float(
+                    pixel_value * intersection_area / pixel_area
+                )
+
+    return population_display
+
+
 def read_raster(path: Path) -> tuple[np.ndarray, Affine, str]:
     with rasterio.open(path) as src:
         return src.read().astype(np.float32), src.transform, str(src.crs)
@@ -816,6 +1068,62 @@ def overlay_coverage_sq_km(overlay: GeoDataFrame) -> float:
     if overlay.empty:
         return 0.0
     return float(overlay.to_crs("EPSG:6933").geometry.area.sum() / 1_000_000.0)
+
+
+def worldpop_population_url(country_iso3: str, year: int) -> str:
+    iso3 = country_iso3.upper()
+    iso_lower = iso3.lower()
+    return (
+        "https://data.worldpop.org/GIS/Population/Global_2015_2030/"
+        f"{WORLDPOP_RELEASE}/{year}/{iso3}/{WORLDPOP_VERSION}/1km_ua/constrained/"
+        f"{iso_lower}_pop_{year}_CN_1km_{WORLDPOP_RELEASE}_UA_{WORLDPOP_VERSION}.tif"
+    )
+
+
+def worldpop_population_cache_path(
+    country_iso3: str, year: int, cache_dir: Path
+) -> Path:
+    iso3 = country_iso3.upper()
+    iso_lower = iso3.lower()
+    filename = (
+        f"{iso_lower}_pop_{year}_CN_1km_{WORLDPOP_RELEASE}_UA_{WORLDPOP_VERSION}.tif"
+    )
+    return cache_dir / "worldpop" / WORLDPOP_RELEASE / iso3 / filename
+
+
+def ensure_worldpop_population_raster(
+    *,
+    country_iso3: str,
+    year: int,
+    cache_dir: Path,
+) -> Path:
+    if year < WORLDPOP_MIN_YEAR or year > WORLDPOP_MAX_YEAR:
+        raise ValueError(
+            f"WorldPop population is only available for {WORLDPOP_MIN_YEAR}-{WORLDPOP_MAX_YEAR}."
+        )
+
+    target_path = worldpop_population_cache_path(country_iso3, year, cache_dir)
+    if target_path.exists():
+        return target_path
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = target_path.with_suffix(f"{target_path.suffix}.part")
+    request = Request(
+        worldpop_population_url(country_iso3, year),
+        headers={"User-Agent": "olmoearth-change/0.1"},
+    )
+    try:
+        with urlopen(request) as response, temp_path.open("wb") as handle:
+            shutil.copyfileobj(response, handle)
+        temp_path.replace(target_path)
+    except (HTTPError, URLError) as exc:
+        temp_path.unlink(missing_ok=True)
+        raise RuntimeError(
+            "Could not download WorldPop population data. "
+            f"country={country_iso3!r} year={year} url={worldpop_population_url(country_iso3, year)}"
+        ) from exc
+
+    return target_path
 
 
 @lru_cache(maxsize=1)

@@ -37,6 +37,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fill-holes-pixels", type=int, default=48)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument(
+        "--skip-population",
+        action="store_true",
+        help="Skip WorldPop population overlays if you want the fastest possible run.",
+    )
+    parser.add_argument(
         "--max-tiles",
         type=int,
         help="Optional cap for a faster pilot run. Omit to process the full district/state.",
@@ -64,6 +69,7 @@ def main() -> None:
         fill_holes_pixels=args.fill_holes_pixels,
         max_tiles=args.max_tiles,
         device=args.device,
+        include_population=not args.skip_population,
     )
     summary = run_analysis(config)
     print(json.dumps(summary, indent=2))

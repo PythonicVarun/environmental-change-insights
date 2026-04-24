@@ -4,6 +4,7 @@ const metricOptions = [
     { key: "water_delta", label: "Water Delta" },
     { key: "urban_delta", label: "Urbanization Delta" },
     { key: "bare_soil_delta", label: "Bare Soil Delta" },
+    { key: "population_delta", label: "Population Delta" },
 ];
 
 const metricColorStops = {
@@ -12,12 +13,12 @@ const metricColorStops = {
     water_delta: ["#7b4a26", "#f3efe7", "#1f6e8c"],
     urban_delta: ["#2f5d50", "#f1efe8", "#c65d19"],
     bare_soil_delta: ["#2f6b84", "#f7f1dd", "#8b5e34"],
+    population_delta: ["#3f6791", "#f4efe5", "#bc5a2e"],
 };
 
 const searchParams = new URLSearchParams(window.location.search);
 const basemapMode =
-    searchParams.get("basemap") ??
-    (window.location.protocol === "file:" ? "none" : "osm");
+    searchParams.get("basemap") ?? (window.location.protocol === "file:" ? "none" : "osm");
 
 const map = L.map("map", { zoomControl: true, preferCanvas: true });
 if (basemapMode === "osm") {
@@ -69,6 +70,24 @@ function rgbToHex({ r, g, b }) {
     return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
+function formatNumber(value, digits = 3) {
+    return Number(value ?? 0).toFixed(digits);
+}
+
+function formatPopulation(value, digits = 1) {
+    return Number(value ?? 0).toLocaleString(undefined, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+    });
+}
+
+function formatPercent(value, digits = 1) {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return "n/a";
+    }
+    return `${Number(value).toFixed(digits)}%`;
+}
+
 function currentPeriodKey() {
     const slider = document.getElementById("period");
     return state.periods[Number(slider.value)];
@@ -99,7 +118,6 @@ function styleForFeature(feature) {
     const bounds = state.boundsByProperty[key];
     const min = bounds?.min ?? 0;
     const max = bounds?.max ?? 1;
-    const midpoint = metric === "embedding_change" ? min : 0;
     let t;
     if (metric === "embedding_change") {
         t = (value - min) / Math.max(max - min, 1e-9);
@@ -122,8 +140,10 @@ function updateLegend() {
     const bounds = state.boundsByProperty[key] ?? { min: 0, max: 0 };
     const legend = document.getElementById("legendScale");
     legend.style.background = `linear-gradient(90deg, ${metricColorStops[metric][0]} 0%, ${metricColorStops[metric][1]} 50%, ${metricColorStops[metric][2]} 100%)`;
-    document.getElementById("legendMin").textContent = bounds.min.toFixed(3);
-    document.getElementById("legendMax").textContent = bounds.max.toFixed(3);
+    document.getElementById("legendMin").textContent =
+        metric === "population_delta" ? formatPopulation(bounds.min, 1) : formatNumber(bounds.min);
+    document.getElementById("legendMax").textContent =
+        metric === "population_delta" ? formatPopulation(bounds.max, 1) : formatNumber(bounds.max);
 }
 
 function updateSummaryCards() {
@@ -132,17 +152,24 @@ function updateSummaryCards() {
     const grid = document.getElementById("summaryGrid");
     const metrics = periodSummary?.metrics ?? {};
     const entries = [
-        ["Median Change", metrics.embedding_change_median ?? 0],
-        ["P95 Change", metrics.embedding_change_p95 ?? 0],
-        ["Mean Vegetation", metrics.vegetation_delta_mean ?? 0],
-        ["Mean Urban", metrics.urban_delta_mean ?? 0],
+        ["Median Change", formatNumber(metrics.embedding_change_median ?? 0)],
+        ["P95 Change", formatNumber(metrics.embedding_change_p95 ?? 0)],
+        ["Mean Vegetation", formatNumber(metrics.vegetation_delta_mean ?? 0)],
+        ["Mean Urban", formatNumber(metrics.urban_delta_mean ?? 0)],
     ];
+    if (metrics.population_delta_total !== undefined) {
+        entries.push(["Population Delta", formatPopulation(metrics.population_delta_total ?? 0)]);
+        entries.push([
+            "Population %",
+            formatPercent(metrics.population_pct_change_total, 1),
+        ]);
+    }
     grid.innerHTML = entries
         .map(
             ([label, value]) => `
         <div class="stat">
           <div class="stat-label">${label}</div>
-          <div class="stat-value">${Number(value).toFixed(3)}</div>
+          <div class="stat-value">${value}</div>
         </div>
       `,
         )
@@ -153,17 +180,21 @@ function updateSummaryCards() {
         .slice(0, 5)
         .map(
             (spot) => `
-                <div class="hotspot">
-                <div class="hotspot-title">${spot.story}</div>
-                <div class="hotspot-meta">
-                    (${spot.latitude}, ${spot.longitude})<br />
-                    Change ${Number(spot.embedding_change).toFixed(3)} |
-                    Veg ${Number(spot.vegetation_delta).toFixed(3)} |
-                    Water ${Number(spot.water_delta).toFixed(3)} |
-                    Urban ${Number(spot.urban_delta).toFixed(3)}
-                </div>
-                </div>
-            `,
+        <div class="hotspot">
+          <div class="hotspot-title">${spot.story}</div>
+          <div class="hotspot-meta">
+            (${spot.latitude}, ${spot.longitude})<br />
+            Change ${formatNumber(spot.embedding_change)} |
+            Veg ${formatNumber(spot.vegetation_delta)} |
+            Water ${formatNumber(spot.water_delta)} |
+            Urban ${formatNumber(spot.urban_delta)}
+            ${spot.population_delta !== undefined
+                    ? `<br />Pop ${formatPopulation(spot.population_delta)} | ${formatPercent(spot.population_pct_change, 1)}`
+                    : ""
+                }
+          </div>
+        </div>
+      `,
         )
         .join("");
 }
@@ -185,12 +216,7 @@ function computeBoundsByProperty(features) {
             const key = `${metric.key}_${period}`;
             const values = features
                 .map((feature) => feature.properties[key])
-                .filter(
-                    (value) =>
-                        value !== null &&
-                        value !== undefined &&
-                        !Number.isNaN(value),
-                );
+                .filter((value) => value !== null && value !== undefined && !Number.isNaN(value));
             if (!values.length) {
                 continue;
             }
@@ -203,16 +229,29 @@ function computeBoundsByProperty(features) {
     return propertyBounds;
 }
 
+function availableMetricOptions() {
+    return metricOptions.filter((metric) =>
+        state.periods.some((period) => state.boundsByProperty[`${metric.key}_${period}`]),
+    );
+}
+
 function buildTooltip(properties) {
     const period = currentPeriodKey();
+    const populationDelta = properties[`population_delta_${period}`];
+    const populationPct = properties[`population_pct_change_${period}`];
+    const populationLine =
+        populationDelta === undefined || populationDelta === null
+            ? ""
+            : `Population: ${formatPopulation(populationDelta)} (${formatPercent(populationPct, 1)})<br />`;
     return `
     <div class="map-tooltip">
       <strong>${properties[`story_${period}`] ?? "Change cell"}</strong><br />
-      OlmoEarth: ${Number(properties[`embedding_change_${period}`] ?? 0).toFixed(3)}<br />
-      Vegetation: ${Number(properties[`vegetation_delta_${period}`] ?? 0).toFixed(3)}<br />
-      Water: ${Number(properties[`water_delta_${period}`] ?? 0).toFixed(3)}<br />
-      Urban: ${Number(properties[`urban_delta_${period}`] ?? 0).toFixed(3)}<br />
-      Bare Soil: ${Number(properties[`bare_soil_delta_${period}`] ?? 0).toFixed(3)}
+      OlmoEarth: ${formatNumber(properties[`embedding_change_${period}`] ?? 0)}<br />
+      Vegetation: ${formatNumber(properties[`vegetation_delta_${period}`] ?? 0)}<br />
+      Water: ${formatNumber(properties[`water_delta_${period}`] ?? 0)}<br />
+      Urban: ${formatNumber(properties[`urban_delta_${period}`] ?? 0)}<br />
+      Bare Soil: ${formatNumber(properties[`bare_soil_delta_${period}`] ?? 0)}<br />
+      ${populationLine}
     </div>
   `;
 }
@@ -273,11 +312,8 @@ async function loadData() {
     document.getElementById("subtitle").textContent = buildSubtitle(summary);
 
     const metricSelect = document.getElementById("metric");
-    metricSelect.innerHTML = metricOptions
-        .map(
-            (metric) =>
-                `<option value="${metric.key}">${metric.label}</option>`,
-        )
+    metricSelect.innerHTML = availableMetricOptions()
+        .map((metric) => `<option value="${metric.key}">${metric.label}</option>`)
         .join("");
 
     const periodSlider = document.getElementById("period");

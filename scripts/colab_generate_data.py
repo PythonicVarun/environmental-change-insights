@@ -71,6 +71,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cloud-max", type=int, default=40)
     parser.add_argument("--fill-holes-pixels", type=int, default=48)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
+    parser.add_argument(
+        "--skip-population",
+        action="store_true",
+        help="Skip WorldPop population overlays if you want the quickest runs.",
+    )
     parser.add_argument("--max-tiles", type=int)
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache"))
     parser.add_argument(
@@ -160,6 +165,7 @@ def main() -> None:
         fill_holes_pixels=args.fill_holes_pixels,
         max_tiles=args.max_tiles,
         device=args.device,
+        include_population=not args.skip_population,
     )
 
     summary = run_analysis(config)
