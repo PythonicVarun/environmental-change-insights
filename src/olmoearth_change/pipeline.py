@@ -29,7 +29,11 @@ from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 from tqdm import tqdm
 
-from .boundaries import ResolvedBoundary, resolve_admin_boundary
+from .boundaries import (
+    ResolvedBoundary,
+    resolve_admin_boundary,
+    resolve_ward_boundaries,
+)
 
 S2_BANDS = [
     "B02",
@@ -82,6 +86,7 @@ class AnalysisConfig:
     max_tiles: int | None = None
     device: str = "auto"
     include_population: bool = True
+    include_ward_overlay: bool = True
     save_composites: bool = True
     save_embedding_change_rasters: bool = True
 
@@ -164,6 +169,7 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
     overlay = build_overlay(boundary, tiles, year_results, config)
     overlay_path = config.output_dir / "overlay.geojson"
     overlay.to_file(overlay_path, driver="GeoJSON")
+    ward_overlay_path = config.output_dir / "ward_overlay.geojson"
     coverage_sq_km = overlay_coverage_sq_km(overlay)
     metadata["coverage_sq_km"] = round(coverage_sq_km, 3)
     metadata["coverage_percent"] = round(
@@ -174,6 +180,21 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
     metadata["partial_coverage"] = bool(
         config.max_tiles is not None and metadata["coverage_percent"] < 99.0
     )
+    ward_overlay = None
+    if config.include_ward_overlay and boundary.district_name:
+        try:
+            ward_overlay = build_ward_overlay(boundary, overlay, config)
+        except Exception as exc:
+            metadata["ward_overlay_error"] = str(exc)
+            ward_overlay = None
+    if ward_overlay is not None and not ward_overlay.empty:
+        ward_overlay.to_file(ward_overlay_path, driver="GeoJSON")
+        metadata["ward_overlay_available"] = True
+        metadata["ward_count"] = int(len(ward_overlay))
+    else:
+        ward_overlay_path.unlink(missing_ok=True)
+        metadata["ward_overlay_available"] = False
+        metadata["ward_count"] = 0
 
     summary = build_summary(metadata, overlay, year_results, config)
     (config.output_dir / "summary.json").write_text(json.dumps(summary, indent=2))
@@ -569,6 +590,191 @@ def build_overlay(
     return overlay
 
 
+def build_ward_overlay(
+    boundary: ResolvedBoundary,
+    overlay: GeoDataFrame,
+    config: AnalysisConfig,
+) -> GeoDataFrame:
+    if overlay.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_id", "ward_name", "geometry"], crs="EPSG:4326"
+        )
+
+    wards = resolve_ward_boundaries(boundary=boundary, cache_dir=config.cache_dir)
+    if wards.empty:
+        return wards
+
+    aggregation_crs = "EPSG:6933"
+    wards_proj = wards.to_crs(aggregation_crs).copy()
+    overlay_proj = overlay.to_crs(aggregation_crs).copy()
+    wards_proj["ward_area_sq_m"] = wards_proj.geometry.area
+    overlay_proj["cell_area_sq_m"] = overlay_proj.geometry.area
+
+    mean_metric_columns: list[str] = []
+    sum_metric_columns: list[str] = []
+    for period in config.periods:
+        mean_metric_columns.extend(
+            [
+                f"embedding_change_{period}y",
+                f"vegetation_delta_{period}y",
+                f"water_delta_{period}y",
+                f"urban_delta_{period}y",
+                f"bare_soil_delta_{period}y",
+            ]
+        )
+        sum_metric_columns.extend(
+            [
+                f"population_base_{period}y",
+                f"population_reference_{period}y",
+                f"population_delta_{period}y",
+            ]
+        )
+    mean_metric_columns = [
+        column for column in mean_metric_columns if column in overlay_proj.columns
+    ]
+    sum_metric_columns = [
+        column for column in sum_metric_columns if column in overlay_proj.columns
+    ]
+
+    intersections = gpd.overlay(
+        wards_proj[["ward_id", "ward_name", "admin_level", "geometry"]],
+        overlay_proj[
+            ["geometry", "cell_area_sq_m", *mean_metric_columns, *sum_metric_columns]
+        ],
+        how="intersection",
+        keep_geom_type=False,
+    )
+    if intersections.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_id", "ward_name", "geometry"], crs="EPSG:4326"
+        )
+
+    intersections = intersections[
+        intersections.geometry.geom_type.isin(["Polygon", "MultiPolygon"])
+    ].copy()
+    if intersections.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_id", "ward_name", "geometry"], crs="EPSG:4326"
+        )
+
+    intersections["intersection_area_sq_m"] = intersections.geometry.area
+    intersections = intersections[intersections["intersection_area_sq_m"] > 0].copy()
+    if intersections.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_id", "ward_name", "geometry"], crs="EPSG:4326"
+        )
+
+    for column in mean_metric_columns:
+        intersections[f"{column}__weighted"] = (
+            intersections[column] * intersections["intersection_area_sq_m"]
+        )
+    for column in sum_metric_columns:
+        intersections[f"{column}__share"] = (
+            intersections[column]
+            * intersections["intersection_area_sq_m"]
+            / intersections["cell_area_sq_m"].clip(lower=1.0)
+        )
+
+    aggregation_columns = {
+        "intersection_area_sq_m": "sum",
+        **{f"{column}__weighted": "sum" for column in mean_metric_columns},
+        **{f"{column}__share": "sum" for column in sum_metric_columns},
+    }
+    aggregated = (
+        intersections.groupby(["ward_id", "ward_name", "admin_level"], dropna=False)
+        .agg(aggregation_columns)
+        .reset_index()
+    )
+    wards_aggregated = wards_proj.merge(
+        aggregated,
+        on=["ward_id", "ward_name", "admin_level"],
+        how="left",
+    )
+    wards_aggregated = wards_aggregated[
+        wards_aggregated["intersection_area_sq_m"].fillna(0.0) > 0
+    ].copy()
+    if wards_aggregated.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_id", "ward_name", "geometry"], crs="EPSG:4326"
+        )
+
+    wards_aggregated["coverage_percent"] = (
+        100.0
+        * wards_aggregated["intersection_area_sq_m"]
+        / wards_aggregated["ward_area_sq_m"].clip(lower=1.0)
+    )
+    for column in mean_metric_columns:
+        wards_aggregated[column] = wards_aggregated[
+            f"{column}__weighted"
+        ] / wards_aggregated["intersection_area_sq_m"].clip(lower=1.0)
+    for column in sum_metric_columns:
+        wards_aggregated[column] = wards_aggregated[f"{column}__share"]
+
+    for period in config.periods:
+        embedding_column = f"embedding_change_{period}y"
+        if embedding_column not in wards_aggregated.columns:
+            continue
+        population_reference_column = f"population_reference_{period}y"
+        population_delta_column = f"population_delta_{period}y"
+        population_pct_column = f"population_pct_change_{period}y"
+        if (
+            population_reference_column in wards_aggregated.columns
+            and population_delta_column in wards_aggregated.columns
+        ):
+            wards_aggregated[population_pct_column] = np.where(
+                wards_aggregated[population_reference_column] > 1e-6,
+                100.0
+                * wards_aggregated[population_delta_column]
+                / wards_aggregated[population_reference_column],
+                np.nan,
+            )
+        wards_aggregated[f"story_{period}y"] = wards_aggregated.apply(
+            lambda row: classify_story(
+                ndvi_delta=clean_number(row.get(f"vegetation_delta_{period}y", 0.0)),
+                water_delta=clean_number(row.get(f"water_delta_{period}y", 0.0)),
+                urban_delta=clean_number(row.get(f"urban_delta_{period}y", 0.0)),
+                bare_soil_delta=clean_number(
+                    row.get(f"bare_soil_delta_{period}y", 0.0)
+                ),
+                embedding_change=clean_number(row.get(embedding_column, 0.0)),
+            ),
+            axis=1,
+        )
+
+    keep_columns = [
+        "ward_id",
+        "ward_name",
+        "admin_level",
+        "coverage_percent",
+        "geometry",
+    ]
+    keep_columns.extend(
+        column
+        for column in mean_metric_columns + sum_metric_columns
+        if column in wards_aggregated.columns
+    )
+    keep_columns.extend(
+        column
+        for column in [f"population_pct_change_{period}y" for period in config.periods]
+        if column in wards_aggregated.columns
+    )
+    keep_columns.extend(
+        column
+        for column in [f"story_{period}y" for period in config.periods]
+        if column in wards_aggregated.columns
+    )
+    ward_overlay = wards_aggregated[keep_columns].copy().to_crs("EPSG:4326")
+    numeric_columns = [
+        column
+        for column in ward_overlay.columns
+        if column not in {"ward_id", "ward_name", "admin_level", "geometry"}
+        and not column.startswith("story_")
+    ]
+    for column in numeric_columns:
+        ward_overlay[column] = ward_overlay[column].round(6)
+    return ward_overlay
+
+
 def build_summary(
     metadata: dict[str, Any],
     overlay: GeoDataFrame,
@@ -820,6 +1026,16 @@ def safe_index(numerator: np.ndarray, denominator_term: np.ndarray) -> np.ndarra
         out=np.zeros_like(numerator, dtype=np.float32),
         where=np.abs(denominator) > 1e-6,
     )
+
+
+def clean_number(value: Any, default: float = 0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if math.isnan(number):
+        return default
+    return number
 
 
 def downsample_mean(array: np.ndarray, factor: int) -> np.ndarray:

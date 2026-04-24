@@ -7,11 +7,15 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import osmnx as ox
+import pandas as pd
 from shapely.geometry.base import BaseGeometry
 
 GEOBOUNDARIES_ENDPOINT = (
     "https://www.geoboundaries.org/api/current/gbOpen/{country}/{adm}/"
 )
+WARD_ADMIN_LEVELS = {"9", "10", "11"}
+WARD_NAME_HINTS = ("ward", "division", "circle")
 
 
 @dataclass(frozen=True)
@@ -182,3 +186,186 @@ def resolve_admin_boundary(
 
 def _local_equal_area_crs() -> str:
     return "EPSG:6933"
+
+
+def resolve_ward_boundaries(
+    *,
+    boundary: ResolvedBoundary,
+    cache_dir: Path,
+) -> gpd.GeoDataFrame:
+    """Resolve ward-like administrative polygons inside a district boundary.
+
+    This is best-effort and currently uses OSM administrative polygons as the
+    source. If no reasonable ward-like polygons are available, an empty frame is
+    returned so the rest of the pipeline can fall back to cell overlays.
+    """
+
+    if not boundary.district_name:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    cache_path = _ward_cache_path(cache_dir, boundary)
+    if cache_path.exists():
+        return gpd.read_file(cache_path).to_crs("EPSG:4326")
+
+    wards = _download_osm_ward_boundaries(boundary, cache_dir)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    if wards.empty:
+        cache_path.write_text(
+            json.dumps({"type": "FeatureCollection", "features": []}, indent=2)
+        )
+        return wards
+
+    wards.to_file(cache_path, driver="GeoJSON")
+    return wards
+
+
+def _ward_cache_path(cache_dir: Path, boundary: ResolvedBoundary) -> Path:
+    state_part = _normalize_name(boundary.state_name or "state")
+    district_part = _normalize_name(boundary.district_name or boundary.label)
+    return (
+        cache_dir
+        / "wards"
+        / "osm"
+        / f"{boundary.country_iso3.upper()}_{state_part}_{district_part}.geojson"
+    )
+
+
+def _download_osm_ward_boundaries(
+    boundary: ResolvedBoundary,
+    cache_dir: Path,
+) -> gpd.GeoDataFrame:
+    ox.settings.use_cache = True
+    ox.settings.cache_folder = str((cache_dir / "osmnx").resolve())
+    features = ox.features_from_polygon(
+        boundary.geometry, tags={"boundary": "administrative"}
+    )
+    if features.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    features = features.reset_index(drop=True).to_crs("EPSG:4326")
+    features = features[
+        features.geometry.geom_type.isin(["Polygon", "MultiPolygon"])
+    ].copy()
+    if features.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    english_names = (
+        features["name:en"]
+        if "name:en" in features.columns
+        else pd.Series([None] * len(features), index=features.index, dtype="object")
+    )
+    local_names = (
+        features["name"]
+        if "name" in features.columns
+        else pd.Series([None] * len(features), index=features.index, dtype="object")
+    )
+    admin_levels = (
+        features["admin_level"]
+        if "admin_level" in features.columns
+        else pd.Series([""] * len(features), index=features.index, dtype="object")
+    )
+    features["ward_name"] = (
+        english_names.fillna(local_names).astype("string").str.strip()
+    )
+    features["admin_level"] = admin_levels.astype("string")
+    features = features[features["ward_name"].notna() & (features["ward_name"] != "")]
+    if features.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    boundary_proj = gpd.GeoDataFrame(
+        [{"geometry": boundary.geometry}], crs="EPSG:4326"
+    ).to_crs(_local_equal_area_crs())
+    boundary_geom_proj = boundary_proj.geometry.iloc[0]
+    features_proj = features.to_crs(_local_equal_area_crs())
+    features_proj["feature_area_sq_m"] = features_proj.geometry.area
+    features_proj["intersection_area_sq_m"] = features_proj.geometry.intersection(
+        boundary_geom_proj
+    ).area
+    features_proj = features_proj[features_proj["intersection_area_sq_m"] > 0].copy()
+    if features_proj.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    boundary_area = float(boundary_geom_proj.area)
+    name_hints = (
+        features_proj["ward_name"]
+        .str.lower()
+        .str.contains(
+            "|".join(WARD_NAME_HINTS),
+            regex=True,
+            na=False,
+        )
+    )
+    admin_level_match = features_proj["admin_level"].isin(WARD_ADMIN_LEVELS)
+    mostly_inside = (
+        features_proj["intersection_area_sq_m"]
+        / features_proj["feature_area_sq_m"].clip(lower=1.0)
+        >= 0.5
+    )
+    smaller_than_boundary = (
+        features_proj["intersection_area_sq_m"] < boundary_area * 0.6
+    )
+    features_proj = features_proj[
+        mostly_inside & smaller_than_boundary & (admin_level_match | name_hints)
+    ].copy()
+    if features_proj.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    district_norm = _normalize_name(boundary.district_name or "")
+    state_norm = _normalize_name(boundary.state_name or "")
+    features_proj["ward_norm_name"] = features_proj["ward_name"].map(_normalize_name)
+    features_proj = features_proj[
+        ~features_proj["ward_norm_name"].isin({district_norm, state_norm})
+    ].copy()
+    if features_proj.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    clipped = gpd.overlay(
+        features_proj[["ward_name", "admin_level", "ward_norm_name", "geometry"]],
+        boundary_proj[["geometry"]],
+        how="intersection",
+        keep_geom_type=False,
+    )
+    if clipped.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    clipped = clipped[
+        clipped.geometry.geom_type.isin(["Polygon", "MultiPolygon"])
+    ].copy()
+    if clipped.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    clipped["clip_area_sq_m"] = clipped.geometry.area
+    clipped = clipped[clipped["clip_area_sq_m"] > 25_000].copy()
+    if clipped.empty:
+        return gpd.GeoDataFrame(
+            columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
+        )
+
+    wards = (
+        clipped.dissolve(
+            by=["ward_norm_name", "ward_name", "admin_level"],
+            as_index=False,
+        )[["ward_name", "admin_level", "geometry"]]
+        .to_crs("EPSG:4326")
+        .reset_index(drop=True)
+    )
+    wards["ward_id"] = [f"ward_{idx:03d}" for idx in range(len(wards))]
+    return wards[["ward_id", "ward_name", "admin_level", "geometry"]]

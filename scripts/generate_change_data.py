@@ -42,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip WorldPop population overlays if you want the fastest possible run.",
     )
     parser.add_argument(
+        "--skip-wards",
+        action="store_true",
+        help="Skip ward-level overlay generation and keep only the cell overlay.",
+    )
+    parser.add_argument(
         "--max-tiles",
         type=int,
         help="Optional cap for a faster pilot run. Omit to process the full district/state.",
@@ -70,6 +75,7 @@ def main() -> None:
         max_tiles=args.max_tiles,
         device=args.device,
         include_population=not args.skip_population,
+        include_ward_overlay=not args.skip_wards,
     )
     summary = run_analysis(config)
     print(json.dumps(summary, indent=2))

@@ -256,6 +256,7 @@ dependencies = [
     { name = "geopandas" },
     { name = "numpy" },
     { name = "olmoearth-pretrain" },
+    { name = "osmnx" },
     { name = "pandas" },
     { name = "planetary-computer" },
     { name = "pyproj" },
@@ -282,6 +283,7 @@ requires-dist = [
     { name = "geopandas", specifier = ">=1.1.1" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "olmoearth-pretrain", specifier = ">=0.1.0" },
+    { name = "osmnx", specifier = ">=2.1.0" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "planetary-computer", specifier = ">=1.0.0" },
     { name = "pyproj", specifier = ">=3.7.1" },
@@ -679,6 +681,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/12/44/c6a8a0948d2ff992eb02a670b54d534d80ab178b883715301f9c01fb3268/olmoearth_pretrain-0.1.0.tar.gz", hash = "sha256:95132034c0c6783ccb3404fad17c94f39f0356a0feb2b519b456e6a17017c9e8", size = 307990, upload-time = "2026-02-06T18:06:40.491Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/9d/3841c37302013bd1839e6617284020a9e89d9b82c159095fdd75ea31506f/olmoearth_pretrain-0.1.0-py3-none-any.whl", hash = "sha256:84316688b85c151ee0bb0e477783cedcc9f4309d70ab5358b48b58a4a97701cf", size = 404695, upload-time = "2026-02-06T18:06:39.137Z" },
+]
+
+[[package]]
+name = "osmnx"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "geopandas" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "requests" },
+    { name = "shapely" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ab/30/65083209545c8ca40f9d2fc76d39d4ef9153aa380c62881ed1971123990c/osmnx-2.1.0.tar.gz", hash = "sha256:0175ab8710bb973cb7cc76c33eeddd670d9d2f4b444da08a1080c470844add2b", size = 90147, upload-time = "2026-02-16T22:51:06.522Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/4d/ee50f0b6b4532d44c0db5415b7ad896a4d9651dcd7aa9f5729a25fc6f502/osmnx-2.1.0-py3-none-any.whl", hash = "sha256:9d6e7692321a4e40c5ca68ef8b85fbfb550244c4135fe9b55cfd4f810a5c8e2e", size = 104405, upload-time = "2026-02-16T22:51:05.386Z" },
 ]
 
 [[package]]

@@ -8,6 +8,7 @@ dependencies = [
     "geopandas>=1.1.1",
     "numpy>=1.26.4",
     "olmoearth-pretrain>=0.1.0",
+    "osmnx>=2.1.0",
     "pandas>=2.2.3",
     "planetary-computer>=1.0.0",
     "pyproj>=3.7.1",

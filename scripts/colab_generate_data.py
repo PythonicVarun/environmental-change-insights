@@ -22,6 +22,7 @@ INSTALL_PACKAGES = [
     "geopandas>=1.1.1",
     "numpy>=1.26.4",
     "olmoearth-pretrain>=0.1.0",
+    "osmnx>=2.1.0",
     "pandas>=2.2.3",
     "planetary-computer>=1.0.0",
     "pyproj>=3.7.1",
@@ -38,6 +39,7 @@ REQUIRED_MODULES = [
     "geopandas",
     "numpy",
     "olmoearth_pretrain",
+    "osmnx",
     "pandas",
     "planetary_computer",
     "pyproj",
@@ -75,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         "--skip-population",
         action="store_true",
         help="Skip WorldPop population overlays if you want the quickest runs.",
+    )
+    parser.add_argument(
+        "--skip-wards",
+        action="store_true",
+        help="Skip ward-level overlay generation and keep only the cell overlay.",
     )
     parser.add_argument("--max-tiles", type=int)
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache"))
@@ -166,6 +173,7 @@ def main() -> None:
         max_tiles=args.max_tiles,
         device=args.device,
         include_population=not args.skip_population,
+        include_ward_overlay=not args.skip_wards,
     )
 
     summary = run_analysis(config)

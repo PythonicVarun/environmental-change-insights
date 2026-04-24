@@ -1,6 +1,6 @@
 # OlmoEarth Change Overlay
 
-This project builds district or state level change layers from **OlmoEarth embeddings** and **Sentinel-2 annual composites**, then exports:
+This project builds district or state level change layers from **OlmoEarth embeddings** and **Sentinel-2 annual composites**, adds **WorldPop population change**, then exports:
 
 - `overlay.geojson` for map overlays
 - `summary.json` for downstream apps or newsroom pipelines
@@ -53,12 +53,14 @@ Useful runtime controls:
 - `--tile-size-m 1280` or `2560` to control area per tile
 - `--model tiny` for the best CPU tradeoff
 - `--display-aggregation 4` to keep the UI responsive
+- `--skip-population` if you want the fastest possible run and do not need WorldPop
+- `--skip-wards` if you want to skip OSM ward aggregation and keep only cell overlays
 
 For a boundary-shaped final map, do not use `--max-tiles`. That flag intentionally processes only the top overlap tiles, which is useful for fast smoke tests but not for a complete district/state overlay.
 
 ## Explore The Map
 
-Serve the output directory so the browser can fetch `summary.json` and `overlay.geojson`:
+Serve the output directory so the browser can fetch `summary.json` and `overlay.geojson` and optional `ward_overlay.geojson`:
 
 ```bash
 cd outputs/noida
@@ -71,9 +73,11 @@ Do not open `ui/index.html` directly with `file://`. That can break local `fetch
 
 The UI includes:
 
-- metric selector for embedding shift, vegetation, water, urbanization, and bare soil
+- basemap selector for OSM, light basemap, imagery, or no basemap
+- analysis-unit switcher for cell overlays and ward overlays when ward boundaries are available
+- metric selector for embedding shift, vegetation, water, urbanization, bare soil, and population delta
 - period slider for 1y / 5y / 10y comparisons
-- color-scaled overlay cells on a Leaflet base map
+- color-scaled overlays on a Leaflet base map
 - hotspot cards sourced from the generated summary
 
 If you want to suppress the basemap intentionally, open:
@@ -103,8 +107,13 @@ For each requested year snapshot, the pipeline:
 4. Computes OlmoEarth embeddings locally with the open `olmoearth-pretrain` model.
 5. Derives interpretable spectral deltas:
    `NDVI`, `MNDWI`, `NDBI`, and `BSI`.
-6. Writes overlay cells with per-period properties like:
-   `embedding_change_5y`, `vegetation_delta_5y`, `water_delta_5y`, `urban_delta_5y`.
+6. Downloads WorldPop 1km constrained population rasters for supported years (`2015`-`2030`)
+   and allocates those counts into the display cells.
+7. Optionally resolves OSM ward-like administrative polygons for the selected district and
+   aggregates cell metrics into ward polygons.
+8. Writes overlay cells with per-period properties like:
+   `embedding_change_5y`, `vegetation_delta_5y`, `water_delta_5y`, `urban_delta_5y`,
+   `population_delta_5y`, plus a `ward_overlay.geojson` when ward boundaries are available.
 
 > [!NOTE]
 > the map uses **embedding L2 shift** as the main OlmoEarth change score because annual OlmoEarth vectors can stay nearly parallel across time, which makes cosine distance too flat for an interactive overlay.
