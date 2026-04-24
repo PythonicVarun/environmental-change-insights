@@ -121,6 +121,23 @@ For each requested year snapshot, the pipeline:
 > [!NOTE]
 > the map uses **embedding L2 shift** as the main OlmoEarth change score because annual OlmoEarth vectors can stay nearly parallel across time, which makes cosine distance too flat for an interactive overlay.
 
+
+## Data Attribution
+
+- **Administrative boundaries:** [geoBoundaries](https://www.geoboundaries.org), the geoBoundaries Global Database of Political Administrative Boundaries, is used for state and district boundaries. geoBoundaries requests web attribution and distributes data under [CC BY 4.0](https://www.geoboundaries.org).
+
+- **Satellite imagery:** annual composites are built from [Copernicus Sentinel-2 L2A](https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a) imagery accessed via Microsoft Planetary Computer. Sentinel-2 data remains subject to the [Copernicus Sentinel Data Terms and Conditions](https://dataspace.copernicus.eu/terms-and-conditions).
+
+- **Pollution proxy:** the `pollution_delta_*` metric is derived from Sentinel-2 L2A `AOT` (aerosol optical thickness) as documented in the official [Copernicus Sentinel-2 L2A documentation](https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html). It is an aerosol-loading proxy, not direct PM2.5, NO2, or regulatory air-quality data.
+
+- **Population:** population overlays come from [WorldPop](https://www.worldpop.org/methods/) annual gridded population products. WorldPop's datasets are available under [CC BY 4.0](https://www.worldpop.org/faq/).
+
+- **Ward overlays and OSM-derived layers:** ward polygons are resolved from [OpenStreetMap](https://www.openstreetmap.org/copyright) administrative data on a best-effort basis. OSM data is licensed under the [ODbL 1.0](https://www.openstreetmap.org/copyright).
+
+- **Basemaps in the UI:** when using the built-in map baselayers, preserve the attribution shown in the UI for OpenStreetMap, CARTO, and Esri.
+
+- **Model attribution:** embeddings are generated with [OlmoEarth / `olmoearth_pretrain`](https://github.com/allenai/olmoearth_pretrain) from Ai2.
+
 ## Caveats
 
 - The default long-baseline `10y` request can reach back into `2015`, where Sentinel-2 coverage is not as complete as later years.
