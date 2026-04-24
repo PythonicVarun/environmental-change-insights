@@ -1,0 +1,25 @@
+{
+    "title": "OlmoEarth Output Library",
+    "subtitle": "One place to browse generated analysis bundles, open their interactive maps, and review summary stats before publication.",
+    "hint": "To add a new output, append one object to `configs/output_catalog.json` with its `path` and optional labels/tags.",
+    "outputs": [
+        {
+            "id": "smoke-shahdara-1y",
+            "title": "Shahdara 1-Year Smoke Run",
+            "group": "Pilot",
+            "badge": "Fast Demo",
+            "path": "outputs/smoke-shahdara-1y",
+            "description": "Quick 1-year pilot over Shahdara district in Delhi.",
+            "tags": ["India", "Delhi", "Shahdara", "1y", "Pilot", "Urban"]
+        },
+        {
+            "id": "smoke-mahe-1y",
+            "title": "Mahe 1-Year Smoke Run",
+            "group": "Pilot",
+            "badge": "Fast Demo",
+            "path":     "outputs/smoke-mahe-1y",
+            "description": "Quick 1-year pilot over Mahe district in Puducherry.",
+            "tags": ["India", "Puducherry", "Mahe", "1y", "Pilot", "Coastal"]
+        }
+    ]
+}
