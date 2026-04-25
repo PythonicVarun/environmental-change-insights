@@ -30,6 +30,12 @@ def parse_args() -> argparse.Namespace:
         "--model", default="tiny", choices=["nano", "tiny", "base", "large"]
     )
     parser.add_argument("--tile-size-m", type=int, default=2560)
+    parser.add_argument(
+        "--resolution-m",
+        type=int,
+        default=10,
+        help="Spatial resolution for Sentinel-2 composites. 20 is much faster than 10.",
+    )
     parser.add_argument("--crop-size", type=int, default=128)
     parser.add_argument("--patch-size", type=int, default=4)
     parser.add_argument("--display-aggregation", type=int, default=4)
@@ -52,6 +58,16 @@ def parse_args() -> argparse.Namespace:
         help="Skip ward-level overlay generation and keep only the cell overlay.",
     )
     parser.add_argument(
+        "--no-save-composites",
+        action="store_true",
+        help="Do not write per-tile yearly composite GeoTIFFs to disk.",
+    )
+    parser.add_argument(
+        "--skip-change-rasters",
+        action="store_true",
+        help="Skip writing per-tile embedding-change rasters to speed up I/O.",
+    )
+    parser.add_argument(
         "--max-tiles",
         type=int,
         help="Optional cap for a faster pilot run. Omit to process the full district/state.",
@@ -72,6 +88,7 @@ def main() -> None:
         base_year=args.base_year,
         periods=tuple(args.periods),
         tile_size_m=args.tile_size_m,
+        resolution_m=args.resolution_m,
         crop_size=args.crop_size,
         patch_size=args.patch_size,
         display_aggregation=args.display_aggregation,
@@ -82,6 +99,8 @@ def main() -> None:
         include_population=not args.skip_population,
         include_pollution=not args.skip_pollution,
         include_ward_overlay=not args.skip_wards,
+        save_composites=not args.no_save_composites,
+        save_embedding_change_rasters=not args.skip_change_rasters,
     )
     summary = run_analysis(config)
     print(json.dumps(summary, indent=2))

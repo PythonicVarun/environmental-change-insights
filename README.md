@@ -51,13 +51,67 @@ Useful runtime controls:
 
 - `--max-tiles 1` for a quick pilot run only
 - `--tile-size-m 1280` or `2560` to control area per tile
+- `--resolution-m 20` for a much faster coarse run (default is 10)
 - `--model tiny` for the best CPU tradeoff
 - `--display-aggregation 4` to keep the UI responsive
 - `--skip-population` if you want the fastest possible run and do not need WorldPop
 - `--skip-pollution` if you want to skip the Sentinel-2 aerosol pollution proxy
 - `--skip-wards` if you want to skip OSM ward aggregation and keep only cell overlays
+- `--skip-change-rasters` to skip writing per-tile change rasters and reduce I/O
+- `--no-save-composites` to skip writing per-tile yearly composite GeoTIFFs
 
 For a boundary-shaped final map, do not use `--max-tiles`. That flag intentionally processes only the top overlap tiles, which is useful for fast smoke tests but not for a complete district/state overlay.
+
+## Speed Up Large Runs
+
+If you are seeing multi-hour runtime (for example, 1,000+ tiles), run in stages:
+
+1. Fast scan (quickly identify hotspots):
+
+```bash
+uv run python scripts/generate_change_data.py \
+   --country IND \
+   --state "Uttar Pradesh" \
+   --district "Gautam Buddha Nagar" \
+   --output-dir outputs/noida-fast \
+   --base-year 2025 \
+   --periods 1 5 \
+   --model nano \
+   --resolution-m 20 \
+   --skip-population \
+   --skip-pollution \
+   --skip-wards \
+   --skip-change-rasters
+```
+
+2. Balanced run (better quality with still lower runtime):
+
+```bash
+uv run python scripts/generate_change_data.py \
+   --country IND \
+   --state "Uttar Pradesh" \
+   --district "Gautam Buddha Nagar" \
+   --output-dir outputs/noida-balanced \
+   --base-year 2025 \
+   --periods 1 5 \
+   --model tiny \
+   --resolution-m 20 \
+   --skip-wards
+```
+
+3. Final publication run (full quality):
+
+```bash
+uv run python scripts/generate_change_data.py \
+   --country IND \
+   --state "Uttar Pradesh" \
+   --district "Gautam Buddha Nagar" \
+   --output-dir outputs/noida-final \
+   --base-year 2025 \
+   --periods 1 5 10 \
+   --model tiny \
+   --resolution-m 10
+```
 
 ## Explore The Map
 
