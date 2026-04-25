@@ -61,6 +61,17 @@ Useful runtime controls:
 - `--skip-change-rasters` to skip writing per-tile change rasters and reduce I/O
 - `--no-save-composites` to skip writing per-tile yearly composite GeoTIFFs
 
+Reruns also reuse per-tile processed caches when inputs are unchanged:
+
+- `outputs/.../years/<year>/<tile_id>_processed_display.npz`
+- `outputs/.../years/<year>/<tile_id>_processed_display.meta.json`
+
+Cache effectiveness is reported in `summary.json` under metadata fields:
+
+- `tile_display_cache_hits`
+- `tile_display_cache_misses`
+- `tile_display_cache_hit_rate`
+
 For a boundary-shaped final map, do not use `--max-tiles`. That flag intentionally processes only the top overlap tiles, which is useful for fast smoke tests but not for a complete district/state overlay.
 
 ## Speed Up Large Runs

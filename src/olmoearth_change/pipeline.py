@@ -127,6 +127,7 @@ class TileYearData:
     population_display: np.ndarray | None
     pollution_display: np.ndarray | None
     scene_count: int
+    cache_hit: bool = False
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,8 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
     year_results: dict[int, dict[str, TileYearData]] = {
         year: {} for year in required_years
     }
+    cache_hits = 0
+    cache_misses = 0
     tile_rows = [
         TileTask(tile_id=str(tile_id), geometry=geometry)
         for tile_id, geometry in zip(
@@ -217,6 +220,10 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
                 )
                 if tile_result is not None:
                     year_results[year][tile.tile_id] = tile_result
+                    if tile_result.cache_hit:
+                        cache_hits += 1
+                    else:
+                        cache_misses += 1
             continue
 
         with ThreadPoolExecutor(max_workers=requested_workers) as executor:
@@ -241,6 +248,17 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
                 tile_result = future.result()
                 if tile_result is not None:
                     year_results[year][tile_id] = tile_result
+                    if tile_result.cache_hit:
+                        cache_hits += 1
+                    else:
+                        cache_misses += 1
+
+    metadata["tile_display_cache_hits"] = int(cache_hits)
+    metadata["tile_display_cache_misses"] = int(cache_misses)
+    cache_total = cache_hits + cache_misses
+    metadata["tile_display_cache_hit_rate"] = (
+        round(100.0 * cache_hits / cache_total, 2) if cache_total else 0.0
+    )
 
     overlay = build_overlay(boundary, tiles, year_results, config)
     overlay_path = config.output_dir / "overlay.geojson"
@@ -336,6 +354,25 @@ def process_tile_year(
     year_dir.mkdir(parents=True, exist_ok=True)
     composite_path = year_dir / f"{tile_id}_composite.tif"
     pollution_path = year_dir / f"{tile_id}_pollution_proxy.tif"
+    processed_cache_path = year_dir / f"{tile_id}_processed_display.npz"
+    processed_cache_meta_path = year_dir / f"{tile_id}_processed_display.meta.json"
+
+    expected_cache_context = build_tile_processed_cache_context(
+        tile_id=tile_id,
+        tile_geometry=tile_geometry,
+        year=year,
+        boundary=boundary,
+        config=config,
+        composite_path=composite_path,
+        pollution_path=pollution_path,
+    )
+    cached_tile = load_tile_year_cache(
+        cache_path=processed_cache_path,
+        cache_meta_path=processed_cache_meta_path,
+        expected_context=expected_cache_context,
+    )
+    if cached_tile is not None:
+        return cached_tile
 
     if composite_path.exists():
         composite, transform, crs = read_raster(composite_path)
@@ -411,7 +448,7 @@ def process_tile_year(
         if pollution is not None:
             pollution_display = downsample_mean(pollution, display_factor)
 
-    return TileYearData(
+    tile_year_data = TileYearData(
         tile_id=tile_id,
         year=year,
         transform=transform,
@@ -427,6 +464,195 @@ def process_tile_year(
         pollution_display=pollution_display,
         scene_count=scene_count,
     )
+
+    cache_context = build_tile_processed_cache_context(
+        tile_id=tile_id,
+        tile_geometry=tile_geometry,
+        year=year,
+        boundary=boundary,
+        config=config,
+        composite_path=composite_path,
+        pollution_path=pollution_path,
+    )
+    try:
+        save_tile_year_cache(
+            cache_path=processed_cache_path,
+            cache_meta_path=processed_cache_meta_path,
+            context=cache_context,
+            tile_data=tile_year_data,
+        )
+    except Exception:
+        # Cache write failures should never break a successful analysis run.
+        pass
+
+    return tile_year_data
+
+
+def raster_file_signature(path: Path) -> dict[str, int] | None:
+    if not path.exists():
+        return None
+    stats = path.stat()
+    return {
+        "size": int(stats.st_size),
+        "mtime_ns": int(stats.st_mtime_ns),
+    }
+
+
+def build_tile_processed_cache_context(
+    *,
+    tile_id: str,
+    tile_geometry: BaseGeometry,
+    year: int,
+    boundary: ResolvedBoundary,
+    config: AnalysisConfig,
+    composite_path: Path,
+    pollution_path: Path,
+) -> dict[str, Any]:
+    return {
+        "cache_version": 1,
+        "tile_id": tile_id,
+        "tile_bounds": [round(float(value), 3) for value in tile_geometry.bounds],
+        "year": int(year),
+        "country_iso3": boundary.country_iso3,
+        "model_name": config.model_name,
+        "tile_size_m": int(config.tile_size_m),
+        "resolution_m": int(config.resolution_m),
+        "patch_size": int(config.patch_size),
+        "crop_size": int(config.crop_size),
+        "display_aggregation": int(config.display_aggregation),
+        "cloud_max": int(config.cloud_max),
+        "fill_holes_pixels": int(config.fill_holes_pixels),
+        "include_population": bool(config.include_population),
+        "include_pollution": bool(config.include_pollution),
+        "composite_signature": raster_file_signature(composite_path),
+        "pollution_signature": (
+            raster_file_signature(pollution_path) if config.include_pollution else None
+        ),
+    }
+
+
+def load_tile_year_cache(
+    *,
+    cache_path: Path,
+    cache_meta_path: Path,
+    expected_context: dict[str, Any],
+) -> TileYearData | None:
+    if not cache_path.exists() or not cache_meta_path.exists():
+        return None
+
+    try:
+        metadata = json.loads(cache_meta_path.read_text())
+    except Exception:
+        return None
+
+    if metadata.get("context") != expected_context:
+        return None
+
+    try:
+        with np.load(cache_path) as payload:
+            has_population = bool(int(payload["has_population"]))
+            has_pollution = bool(int(payload["has_pollution"]))
+            population_display = (
+                payload["population_display"].astype(np.float32)
+                if has_population
+                else None
+            )
+            pollution_display = (
+                payload["pollution_display"].astype(np.float32)
+                if has_pollution
+                else None
+            )
+
+            return TileYearData(
+                tile_id=str(metadata["context"]["tile_id"]),
+                year=int(metadata["context"]["year"]),
+                transform=Affine(
+                    *[float(value) for value in payload["transform_coeffs"].tolist()]
+                ),
+                embedding_transform=Affine(
+                    *[
+                        float(value)
+                        for value in payload["embedding_transform_coeffs"].tolist()
+                    ]
+                ),
+                display_transform=Affine(
+                    *[
+                        float(value)
+                        for value in payload["display_transform_coeffs"].tolist()
+                    ]
+                ),
+                crs=str(metadata["crs"]),
+                embeddings=payload["embeddings"].astype(np.float32),
+                ndvi_display=payload["ndvi_display"].astype(np.float32),
+                mndwi_display=payload["mndwi_display"].astype(np.float32),
+                ndbi_display=payload["ndbi_display"].astype(np.float32),
+                bsi_display=payload["bsi_display"].astype(np.float32),
+                population_display=population_display,
+                pollution_display=pollution_display,
+                scene_count=int(payload["scene_count"]),
+                cache_hit=True,
+            )
+    except Exception:
+        return None
+
+
+def save_tile_year_cache(
+    *,
+    cache_path: Path,
+    cache_meta_path: Path,
+    context: dict[str, Any],
+    tile_data: TileYearData,
+) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_cache_path = cache_path.with_suffix(f"{cache_path.suffix}.tmp")
+    temp_meta_path = cache_meta_path.with_suffix(f"{cache_meta_path.suffix}.tmp")
+
+    with temp_cache_path.open("wb") as handle:
+        np.savez_compressed(
+            handle,
+            embeddings=tile_data.embeddings.astype(np.float32),
+            ndvi_display=tile_data.ndvi_display.astype(np.float32),
+            mndwi_display=tile_data.mndwi_display.astype(np.float32),
+            ndbi_display=tile_data.ndbi_display.astype(np.float32),
+            bsi_display=tile_data.bsi_display.astype(np.float32),
+            population_display=(
+                tile_data.population_display.astype(np.float32)
+                if tile_data.population_display is not None
+                else np.empty((0, 0), dtype=np.float32)
+            ),
+            pollution_display=(
+                tile_data.pollution_display.astype(np.float32)
+                if tile_data.pollution_display is not None
+                else np.empty((0, 0), dtype=np.float32)
+            ),
+            has_population=np.array(
+                1 if tile_data.population_display is not None else 0, dtype=np.uint8
+            ),
+            has_pollution=np.array(
+                1 if tile_data.pollution_display is not None else 0, dtype=np.uint8
+            ),
+            transform_coeffs=np.array(tuple(tile_data.transform), dtype=np.float64),
+            embedding_transform_coeffs=np.array(
+                tuple(tile_data.embedding_transform), dtype=np.float64
+            ),
+            display_transform_coeffs=np.array(
+                tuple(tile_data.display_transform), dtype=np.float64
+            ),
+            scene_count=np.array(int(tile_data.scene_count), dtype=np.int32),
+        )
+    temp_cache_path.replace(cache_path)
+
+    temp_meta_path.write_text(
+        json.dumps(
+            {
+                "context": context,
+                "crs": tile_data.crs,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    temp_meta_path.replace(cache_meta_path)
 
 
 def fetch_sentinel2_composite(
