@@ -80,6 +80,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fill-holes-pixels", type=int, default=48)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of parallel tile workers for CPU runs.",
+    )
+    parser.add_argument(
         "--skip-population",
         action="store_true",
         help="Skip WorldPop population overlays if you want the quickest runs.",
@@ -193,6 +199,7 @@ def main() -> None:
         cloud_max=args.cloud_max,
         fill_holes_pixels=args.fill_holes_pixels,
         max_tiles=args.max_tiles,
+        workers=args.workers,
         device=args.device,
         include_population=not args.skip_population,
         include_pollution=not args.skip_pollution,

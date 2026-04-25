@@ -1,6 +1,8 @@
 import json
 import math
+import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -88,6 +90,7 @@ class AnalysisConfig:
     cloud_max: int = 40
     fill_holes_pixels: int = 48
     max_tiles: int | None = None
+    workers: int = 1
     device: str = "auto"
     include_population: bool = True
     include_pollution: bool = True
@@ -96,6 +99,8 @@ class AnalysisConfig:
     save_embedding_change_rasters: bool = True
 
     def __post_init__(self) -> None:
+        if self.workers < 1:
+            raise ValueError("workers must be >= 1.")
         if self.tile_size_m % self.resolution_m != 0:
             raise ValueError("tile_size_m must be divisible by resolution_m.")
         if (self.tile_size_m // self.resolution_m) % self.crop_size != 0:
@@ -122,6 +127,12 @@ class TileYearData:
     population_display: np.ndarray | None
     pollution_display: np.ndarray | None
     scene_count: int
+
+
+@dataclass(frozen=True)
+class TileTask:
+    tile_id: str
+    geometry: BaseGeometry
 
 
 def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
@@ -161,23 +172,75 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
     year_results: dict[int, dict[str, TileYearData]] = {
         year: {} for year in required_years
     }
+    tile_rows = [
+        TileTask(tile_id=str(tile_id), geometry=geometry)
+        for tile_id, geometry in zip(
+            tiles["tile_id"].astype(str).tolist(),
+            tiles.geometry.tolist(),
+            strict=False,
+        )
+    ]
+    tile_crs = str(tiles.crs)
+
+    requested_workers = min(config.workers, max(1, len(tile_rows)))
+    resolved_device = resolve_torch_device(config.device)
+    if resolved_device.type == "cuda" and requested_workers > 1:
+        metadata["workers_note"] = (
+            "workers>1 was requested, but CUDA execution currently runs with workers=1 "
+            "to avoid GPU contention."
+        )
+        requested_workers = 1
+
+    if resolved_device.type == "cpu" and requested_workers > 1:
+        cpu_count = os_cpu_count() or requested_workers
+        torch_threads = max(1, cpu_count // requested_workers)
+        os.environ["OLMOEARTH_TORCH_NUM_THREADS"] = str(torch_threads)
+        metadata["workers"] = int(requested_workers)
+        metadata["torch_threads_per_worker"] = int(torch_threads)
+    else:
+        os.environ.pop("OLMOEARTH_TORCH_NUM_THREADS", None)
 
     for year in required_years:
-        for tile in tqdm(
-            tiles.itertuples(index=False),
-            total=len(tiles),
-            desc=f"Processing {year}",
-        ):
-            tile_result = process_tile_year(
-                tile_id=str(tile.tile_id),
-                tile_geometry=tile.geometry,
-                tile_crs=str(tiles.crs),
-                year=year,
-                boundary=boundary,
-                config=config,
-            )
-            if tile_result is not None:
-                year_results[year][str(tile.tile_id)] = tile_result
+        if requested_workers == 1:
+            for tile in tqdm(
+                tile_rows,
+                total=len(tile_rows),
+                desc=f"Processing {year}",
+            ):
+                tile_result = process_tile_year(
+                    tile_id=tile.tile_id,
+                    tile_geometry=tile.geometry,
+                    tile_crs=tile_crs,
+                    year=year,
+                    boundary=boundary,
+                    config=config,
+                )
+                if tile_result is not None:
+                    year_results[year][tile.tile_id] = tile_result
+            continue
+
+        with ThreadPoolExecutor(max_workers=requested_workers) as executor:
+            future_to_tile_id = {
+                executor.submit(
+                    process_tile_year,
+                    tile_id=tile.tile_id,
+                    tile_geometry=tile.geometry,
+                    tile_crs=tile_crs,
+                    year=year,
+                    boundary=boundary,
+                    config=config,
+                ): tile.tile_id
+                for tile in tile_rows
+            }
+            for future in tqdm(
+                as_completed(future_to_tile_id),
+                total=len(future_to_tile_id),
+                desc=f"Processing {year} ({requested_workers} workers)",
+            ):
+                tile_id = future_to_tile_id[future]
+                tile_result = future.result()
+                if tile_result is not None:
+                    year_results[year][tile_id] = tile_result
 
     overlay = build_overlay(boundary, tiles, year_results, config)
     overlay_path = config.output_dir / "overlay.geojson"
@@ -1023,6 +1086,7 @@ def build_summary(
             "periods": list(config.periods),
             "model_name": config.model_name,
             "tile_size_m": config.tile_size_m,
+            "workers": config.workers,
             "include_population": config.include_population,
             "include_pollution": config.include_pollution,
             "display_cell_size_m": config.patch_size
@@ -1486,7 +1550,15 @@ def planetary_catalog() -> Client:
 @lru_cache(maxsize=4)
 def load_olmoearth_model(model_name: str, device_type: str = "cpu") -> torch.nn.Module:
     if device_type == "cpu":
-        torch.set_num_threads(max(1, (os_cpu_count() or 2) - 1))
+        threads_override = os.environ.get("OLMOEARTH_TORCH_NUM_THREADS")
+        if threads_override is not None:
+            try:
+                torch_threads = max(1, int(threads_override))
+            except ValueError:
+                torch_threads = max(1, (os_cpu_count() or 2) - 1)
+        else:
+            torch_threads = max(1, (os_cpu_count() or 2) - 1)
+        torch.set_num_threads(torch_threads)
     model = load_model_from_id(model_id_from_name(model_name))
     model.to(torch.device(device_type))
     model.eval()
@@ -1508,8 +1580,6 @@ def resolve_torch_device(device_preference: str = "auto") -> torch.device:
 
 def os_cpu_count() -> int | None:
     try:
-        import os
-
         return os.cpu_count()
     except Exception:
         return None

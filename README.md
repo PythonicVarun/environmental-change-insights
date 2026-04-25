@@ -53,6 +53,7 @@ Useful runtime controls:
 - `--tile-size-m 1280` or `2560` to control area per tile
 - `--resolution-m 20` for a much faster coarse run (default is 10)
 - `--model tiny` for the best CPU tradeoff
+- `--workers 4` (or higher) for parallel tile processing on CPU
 - `--display-aggregation 4` to keep the UI responsive
 - `--skip-population` if you want the fastest possible run and do not need WorldPop
 - `--skip-pollution` if you want to skip the Sentinel-2 aerosol pollution proxy
@@ -65,6 +66,8 @@ For a boundary-shaped final map, do not use `--max-tiles`. That flag intentional
 ## Speed Up Large Runs
 
 If you are seeing multi-hour runtime (for example, 1,000+ tiles), run in stages:
+
+For full-quality runs on CPU, start by adding `--workers` before reducing quality options.
 
 1. Fast scan (quickly identify hotspots):
 
@@ -110,6 +113,7 @@ uv run python scripts/generate_change_data.py \
    --base-year 2025 \
    --periods 1 5 10 \
    --model tiny \
+   --workers 6 \
    --resolution-m 10
 ```
 
