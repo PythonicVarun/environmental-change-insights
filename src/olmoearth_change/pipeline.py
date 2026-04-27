@@ -1,3 +1,8 @@
+import warnings
+
+warnings.filterwarnings("ignore", message=".*olmo-core not installed.*")
+warnings.filterwarnings("ignore", message=".*helios.*renamed to.*olmoearth_pretrain.*")
+
 import json
 import math
 import os
