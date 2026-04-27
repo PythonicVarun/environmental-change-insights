@@ -1,0 +1,185 @@
+{
+  "metadata": {
+    "label": "Gurgaon, Hary\u0101na, IND",
+    "country_iso3": "IND",
+    "admin_level": "ADM2",
+    "state_name": "Hary\u0101na",
+    "district_name": "Gurgaon",
+    "area_sq_km": 1239.9890353480296,
+    "generated_at_utc": "2026-04-27",
+    "population_source": "WorldPop Global 2 constrained 1km population counts",
+    "population_citation_url": "https://www.worldpop.org/methods/populations/",
+    "population_license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "pollution_source": "Sentinel-2 L2A AOT aerosol optical thickness proxy",
+    "pollution_citation_url": "https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html",
+    "pollution_note": "Pollution uses Sentinel-2 aerosol optical thickness as an annual aerosol proxy, not direct PM2.5 or gas concentration.",
+    "workers": 4,
+    "torch_threads_per_worker": 1,
+    "tile_display_cache_hits": 481,
+    "tile_display_cache_misses": 5,
+    "tile_display_cache_hit_rate": 98.97,
+    "coverage_sq_km": 1239.989,
+    "coverage_percent": 100.0,
+    "tile_count": 243,
+    "partial_coverage": false,
+    "ward_overlay_available": true,
+    "ward_count": 342
+  },
+  "config": {
+    "base_year": 2025,
+    "periods": [
+      5
+    ],
+    "model_name": "tiny",
+    "tile_size_m": 2560,
+    "workers": 4,
+    "include_population": true,
+    "include_pollution": true,
+    "display_cell_size_m": 160
+  },
+  "scene_counts": {
+    "2020": 16596,
+    "2025": 15980
+  },
+  "feature_count": 49392,
+  "periods": {
+    "5y": {
+      "metrics": {
+        "embedding_change_median": 0.002558,
+        "embedding_change_p95": 0.003566,
+        "vegetation_delta_mean": -0.281065,
+        "water_delta_mean": 0.341851,
+        "urban_delta_mean": 0.016343,
+        "bare_soil_delta_mean": 0.001217,
+        "pollution_delta_mean": 0.203767,
+        "population_base_total": 2924856.963,
+        "population_reference_total": 2771439.773,
+        "population_delta_total": 153417.19,
+        "population_delta_mean": 3.106114,
+        "population_pct_change_total": 5.536
+      },
+      "story_counts": {
+        "Water gain or inundation": 42016,
+        "Urban expansion replacing vegetation": 7287,
+        "Mixed land-cover change": 49,
+        "Water retreat or drying": 30,
+        "Greening or crop intensification": 9,
+        "Bare-soil or industrial expansion": 1
+      },
+      "hotspots": [
+        {
+          "latitude": 28.311519,
+          "longitude": 76.7432,
+          "embedding_change": 0.017937,
+          "vegetation_delta": -0.978671,
+          "water_delta": 0.766292,
+          "urban_delta": 0.414711,
+          "bare_soil_delta": 0.334356,
+          "pollution_delta": 0.205969,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_068",
+          "population_delta": 1.254802,
+          "population_pct_change": 8.5325
+        },
+        {
+          "latitude": 28.400932,
+          "longitude": 76.8606,
+          "embedding_change": 0.016708,
+          "vegetation_delta": -0.554198,
+          "water_delta": 0.708671,
+          "urban_delta": -0.02719,
+          "bare_soil_delta": -0.105208,
+          "pollution_delta": 0.203,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_152",
+          "population_delta": 0.946139,
+          "population_pct_change": 7.396183
+        },
+        {
+          "latitude": 28.40091,
+          "longitude": 76.862233,
+          "embedding_change": 0.014228,
+          "vegetation_delta": -0.381503,
+          "water_delta": 0.60687,
+          "urban_delta": -0.081534,
+          "bare_soil_delta": -0.176044,
+          "pollution_delta": 0.203,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_153",
+          "population_delta": 0.946139,
+          "population_pct_change": 7.396183
+        },
+        {
+          "latitude": 28.262248,
+          "longitude": 77.159866,
+          "embedding_change": 0.01379,
+          "vegetation_delta": -0.726145,
+          "water_delta": 0.720133,
+          "urban_delta": 0.020941,
+          "bare_soil_delta": -0.057511,
+          "pollution_delta": 0.197,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_040",
+          "population_delta": 1.742296,
+          "population_pct_change": 6.128786
+        },
+        {
+          "latitude": 28.380833,
+          "longitude": 76.7427,
+          "embedding_change": 0.012954,
+          "vegetation_delta": -0.654415,
+          "water_delta": 0.564601,
+          "urban_delta": 0.226829,
+          "bare_soil_delta": 0.100128,
+          "pollution_delta": 0.2055,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_130",
+          "population_delta": 0.086511,
+          "population_pct_change": 3.592703
+        },
+        {
+          "latitude": 28.382277,
+          "longitude": 76.742723,
+          "embedding_change": 0.012813,
+          "vegetation_delta": -0.587477,
+          "water_delta": 0.541465,
+          "urban_delta": 0.190297,
+          "bare_soil_delta": 0.028528,
+          "pollution_delta": 0.2055,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_130",
+          "population_delta": 0.086511,
+          "population_pct_change": 3.592703
+        },
+        {
+          "latitude": 28.400955,
+          "longitude": 76.858968,
+          "embedding_change": 0.012733,
+          "vegetation_delta": -0.468658,
+          "water_delta": 0.602004,
+          "urban_delta": -0.030148,
+          "bare_soil_delta": -0.096477,
+          "pollution_delta": 0.203,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_152",
+          "population_delta": 1.117661,
+          "population_pct_change": 7.562305
+        },
+        {
+          "latitude": 28.311498,
+          "longitude": 76.744831,
+          "embedding_change": 0.012583,
+          "vegetation_delta": -0.927569,
+          "water_delta": 0.716824,
+          "urban_delta": 0.385138,
+          "bare_soil_delta": 0.342781,
+          "pollution_delta": 0.20693,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_068",
+          "population_delta": 1.254802,
+          "population_pct_change": 8.5325
+        }
+      ]
+    }
+  }
+}

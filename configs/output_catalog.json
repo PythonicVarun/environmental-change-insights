@@ -22,13 +22,21 @@
             "tags": ["India", "Puducherry", "Mahe", "1y", "Pilot", "Coastal"]
         },
         {
-            "id": "smoke-mahe-1y-v2",
-            "title": "Mahe 1-Year Smoke Run v2",
-            "group": "Pilot",
-            "badge": "Fast Demo",
-            "path": "outputs/smoke-mahe-1y-v2",
-            "description": "Quick 1-year pilot over Mahe district in Puducherry.",
-            "tags": ["India", "Puducherry", "Mahe", "1y", "Pilot", "Coastal"]
+            "id": "gautam-buddha-nagar",
+            "title": "Gautam Buddha Nagar 10-Year Change",
+            "group": "District",
+            "path": "outputs/gautam_buddha_nagar",
+            "description": "10-year change run for Gautam Buddha Nagar district in Uttar Pradesh.",
+            "tags": ["India", "Uttar Pradesh", "Gautam Buddha Nagar", "10y", "District"]
+        },
+        {
+            "id": "gurgaon",
+            "title": "Gurgaon 5-Year Change",
+            "group": "District",
+            "path": "outputs/gurgaon",
+            "description": "5-year change run for Gurgaon district in Haryana.",
+            "tags": ["India", "Haryana", "Gurgaon", "5y", "District", "Wards"],
+            "has_wards": true
         }
     ]
 }
