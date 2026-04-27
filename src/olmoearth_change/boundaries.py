@@ -3,6 +3,7 @@ import re
 import unicodedata
 import urllib.request
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,11 @@ def _load_boundary_layer(
     adm_level: str,
 ) -> gpd.GeoDataFrame:
     path = _ensure_boundary_file(cache_dir, country_iso3, adm_level)
+    return _load_boundary_layer_cached(str(path.resolve()))
+
+
+@lru_cache(maxsize=32)
+def _load_boundary_layer_cached(path: str) -> gpd.GeoDataFrame:
     gdf = gpd.read_file(path).to_crs("EPSG:4326")
     gdf["__norm_name"] = gdf["shapeName"].map(_normalize_name)
     return gdf

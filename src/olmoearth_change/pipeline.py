@@ -31,6 +31,7 @@ from olmoearth_pretrain.datatypes import MaskedOlmoEarthSample, MaskValue
 from olmoearth_pretrain.model_loader import ModelID, load_model_from_id
 from pystac_client import Client
 from rasterio.transform import from_origin
+from rasterio.warp import transform_bounds
 from rasterio.windows import Window, from_bounds
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
@@ -343,6 +344,7 @@ def build_tiles(boundary: ResolvedBoundary, config: AnalysisConfig) -> GeoDataFr
     )
     if config.max_tiles is not None:
         tiles = tiles.head(config.max_tiles).copy()
+    tiles = gpd.GeoDataFrame(tiles, geometry="geometry", crs=utm_crs)
     return tiles
 
 
@@ -379,6 +381,8 @@ def process_tile_year(
     if cached_tile is not None:
         return cached_tile
 
+    pollution: np.ndarray | None = None
+
     fetch_raster = True
     if composite_path.exists():
         try:
@@ -389,16 +393,18 @@ def process_tile_year(
             composite_path.unlink(missing_ok=True)
 
     if fetch_raster:
+        need_pollution_fetch = config.include_pollution and not pollution_path.exists()
         composite_data = fetch_sentinel2_composite(
             tile_geometry=tile_geometry,
             tile_crs=tile_crs,
             year=year,
             config=config,
+            include_aot=need_pollution_fetch,
         )
         if composite_data is None:
             return None
 
-        composite, transform, crs, scene_count = composite_data
+        composite, transform, crs, scene_count, fetched_pollution = composite_data
         if config.save_composites:
             write_multiband_raster(
                 composite_path,
@@ -406,6 +412,14 @@ def process_tile_year(
                 transform,
                 crs,
                 tags={"scene_count": scene_count, "year": year, "tile_id": tile_id},
+            )
+        if fetched_pollution is not None:
+            pollution = fetched_pollution
+            write_single_band_raster(
+                pollution_path,
+                pollution,
+                transform,
+                crs,
             )
 
     embeddings = compute_embeddings(
@@ -438,17 +452,16 @@ def process_tile_year(
         )
     pollution_display = None
     if config.include_pollution:
-        if pollution_path.exists():
+        if pollution is None and pollution_path.exists():
             pollution_array, _, _ = read_raster(pollution_path)
             pollution = pollution_array[0]
-        else:
+        if pollution is None:
             pollution_data = fetch_sentinel2_aot_composite(
                 tile_geometry=tile_geometry,
                 tile_crs=tile_crs,
                 year=year,
                 config=config,
             )
-            pollution = None
             if pollution_data is not None:
                 pollution, pollution_transform, pollution_crs, _ = pollution_data
                 write_single_band_raster(
@@ -673,7 +686,8 @@ def fetch_sentinel2_composite(
     tile_crs: str,
     year: int,
     config: AnalysisConfig,
-) -> tuple[np.ndarray, Affine, str, int] | None:
+    include_aot: bool = False,
+) -> tuple[np.ndarray, Affine, str, int, np.ndarray | None] | None:
     bounds = tile_geometry.bounds
     items = search_sentinel2_items(
         tile_geometry=tile_geometry,
@@ -685,23 +699,30 @@ def fetch_sentinel2_composite(
         return None
 
     epsg = int(str(tile_crs).split(":")[-1])
+    assets = [*S2_BANDS, "AOT"] if include_aot else S2_BANDS
     stack = stackstac.stack(
         items,
-        assets=S2_BANDS,
+        assets=assets,
         bounds=bounds,
         resolution=config.resolution_m,
         epsg=epsg,
-        dtype=np.float64,
+        dtype=np.dtype(np.float64),
         rescale=False,
         fill_value=np.nan,
         chunksize=512,
     )
     median = stack.median(dim="time", skipna=True).compute()
-    array = median.values.astype(np.float32)
-    array = np.clip((array - 1000.0) / 10000.0, 0.0, 1.0)
+    values = median.values.astype(np.float32)
+    array = np.clip((values[: len(S2_BANDS)] - 1000.0) / 10000.0, 0.0, 1.0)
 
     if config.fill_holes_pixels > 0:
         array = fill_holes(array, config.fill_holes_pixels)
+
+    pollution: np.ndarray | None = None
+    if include_aot and values.shape[0] > len(S2_BANDS):
+        pollution = np.clip(values[len(S2_BANDS)] / 1000.0, 0.0, 2.0)
+        if config.fill_holes_pixels > 0:
+            pollution = fill_holes(pollution[None, ...], config.fill_holes_pixels)[0]
 
     x = median.x.values
     y = median.y.values
@@ -711,7 +732,7 @@ def fetch_sentinel2_composite(
         config.resolution_m,
         config.resolution_m,
     )
-    return array, transform, f"EPSG:{epsg}", len(items)
+    return array, transform, f"EPSG:{epsg}", len(items), pollution
 
 
 def fetch_sentinel2_aot_composite(
@@ -738,7 +759,7 @@ def fetch_sentinel2_aot_composite(
         bounds=bounds,
         resolution=config.resolution_m,
         epsg=epsg,
-        dtype=np.float64,
+        dtype=np.dtype(np.float64),
         rescale=False,
         fill_value=np.nan,
         chunksize=512,
@@ -767,24 +788,51 @@ def search_sentinel2_items(
     year: int,
     config: AnalysisConfig,
 ) -> list[Any] | None:
-    catalog = planetary_catalog()
-    bbox_latlon = (
-        gpd.GeoSeries([tile_geometry], crs=tile_crs)
-        .to_crs("EPSG:4326")
-        .total_bounds.tolist()
-    )
-    datetime_range = f"{year}-01-01/{year}-12-31"
-    for cloud_cap in [config.cloud_max, 60, 80]:
-        search = catalog.search(
-            collections=["sentinel-2-l2a"],
-            bbox=bbox_latlon,
-            datetime=datetime_range,
-            query={"eo:cloud_cover": {"lt": cloud_cap}},
+    bbox_latlon = transform_bounds(tile_crs, "EPSG:4326", *tile_geometry.bounds)
+    bbox_key = tuple(round(float(value), 5) for value in bbox_latlon)
+    for cloud_cap in _cloud_caps(config.cloud_max):
+        found = _search_sentinel2_items_cached(
+            bbox_key,
+            int(year),
+            int(cloud_cap),
         )
-        found = list(search.items())
         if found:
-            return found
+            return list(found)
     return None
+
+
+def _cloud_caps(primary_cloud_max: int) -> tuple[int, ...]:
+    caps: list[int] = []
+    for value in [int(primary_cloud_max), 60, 80]:
+        if value not in caps:
+            caps.append(value)
+    return tuple(caps)
+
+
+@lru_cache(maxsize=4096)
+def _search_sentinel2_items_cached(
+    bbox_key: tuple[float, float, float, float],
+    year: int,
+    cloud_cap: int,
+) -> tuple[Any, ...]:
+    catalog = planetary_catalog()
+    search = catalog.search(
+        collections=["sentinel-2-l2a"],
+        bbox=list(bbox_key),
+        datetime=f"{year}-01-01/{year}-12-31",
+        query={"eo:cloud_cover": {"lt": cloud_cap}},
+    )
+    return tuple(search.items())
+
+
+def _embedding_batch_size() -> int:
+    override = os.environ.get("OLMOEARTH_ENCODER_BATCH_SIZE")
+    if override is None:
+        return 4
+    try:
+        return max(1, int(override))
+    except ValueError:
+        return 4
 
 
 def compute_embeddings(
@@ -810,6 +858,7 @@ def compute_embeddings(
 
     device = resolve_torch_device(device_preference)
     model = load_olmoearth_model(model_name, device.type)
+    model_any: Any = model
     output_h = image.shape[1] // patch_size
     output_w = image.shape[2] // patch_size
     embed_dim = embedding_dim_for_model(model_name)
@@ -818,13 +867,26 @@ def compute_embeddings(
 
     timestamp = torch.tensor([[[15, 6, year]]], dtype=torch.int64, device=device)
     mask_value = float(MaskValue.ONLINE_ENCODER.value)
+    windows = [
+        (top, left)
+        for top in range(0, image.shape[1], crop_size)
+        for left in range(0, image.shape[2], crop_size)
+    ]
+    batch_size = _embedding_batch_size()
 
-    for top in range(0, image.shape[1], crop_size):
-        for left in range(0, image.shape[2], crop_size):
-            crop = image[:, top : top + crop_size, left : left + crop_size, :, :]
-            tensor = torch.tensor(crop, dtype=torch.float32, device=device)
+    with torch.no_grad():
+        for start in range(0, len(windows), batch_size):
+            batch_windows = windows[start : start + batch_size]
+            crop_batch = np.concatenate(
+                [
+                    image[:, top : top + crop_size, left : left + crop_size, :, :]
+                    for top, left in batch_windows
+                ],
+                axis=0,
+            ).astype(np.float32, copy=False)
+            tensor = torch.from_numpy(crop_batch).to(device=device, dtype=torch.float32)
             mask = torch.full(
-                (1, crop_size, crop_size, 1, 3),
+                (len(batch_windows), crop_size, crop_size, 1, 3),
                 mask_value,
                 dtype=torch.float32,
                 device=device,
@@ -832,20 +894,24 @@ def compute_embeddings(
             sample = MaskedOlmoEarthSample(
                 sentinel2_l2a=tensor,
                 sentinel2_l2a_mask=mask,
-                timestamps=timestamp,
+                timestamps=timestamp.expand(len(batch_windows), -1, -1),
             )
-            with torch.no_grad():
-                encoded = model.encoder(sample, fast_pass=True, patch_size=patch_size)[
-                    "tokens_and_masks"
-                ].sentinel2_l2a
-                pooled = encoded.mean(dim=[3, 4])[0].permute(2, 0, 1).cpu().numpy()
+            encoder = getattr(model_any, "encoder")
+            encoded = encoder(sample, fast_pass=True, patch_size=patch_size)[
+                "tokens_and_masks"
+            ].sentinel2_l2a
+            pooled_batch = encoded.mean(dim=[3, 4]).permute(0, 3, 1, 2).cpu().numpy()
 
-            out_top = top // patch_size
-            out_left = left // patch_size
-            out_h = pooled.shape[1]
-            out_w = pooled.shape[2]
-            output[:, out_top : out_top + out_h, out_left : out_left + out_w] += pooled
-            counts[out_top : out_top + out_h, out_left : out_left + out_w] += 1.0
+            for idx, (top, left) in enumerate(batch_windows):
+                pooled = pooled_batch[idx]
+                out_top = top // patch_size
+                out_left = left // patch_size
+                out_h = pooled.shape[1]
+                out_w = pooled.shape[2]
+                output[
+                    :, out_top : out_top + out_h, out_left : out_left + out_w
+                ] += pooled
+                counts[out_top : out_top + out_h, out_left : out_left + out_w] += 1.0
 
     counts = np.maximum(counts, 1.0)
     output /= counts[None, :, :]
@@ -868,16 +934,21 @@ def build_overlay(
     rows: list[dict[str, Any]] = []
     display_factor = config.display_aggregation
 
-    for tile in tiles.itertuples(index=False):
-        base = base_results.get(str(tile.tile_id))
+    for tile_id_raw, tile_geom in tiles[["tile_id", "geometry"]].itertuples(
+        index=False, name=None
+    ):
+        tile_id = str(tile_id_raw)
+        base = base_results.get(tile_id)
         if base is None:
             continue
+
+        tile_is_inside_boundary = bool(tile_geom.covered_by(boundary_geom_proj))
 
         period_changes: dict[int, np.ndarray] = {}
         period_metrics: dict[int, dict[str, np.ndarray]] = {}
         for period in config.periods:
             year = config.base_year - period
-            ref = year_results.get(year, {}).get(str(tile.tile_id))
+            ref = year_results.get(year, {}).get(tile_id)
             if ref is None:
                 continue
             period_changes[period] = downsample_mean(
@@ -905,7 +976,7 @@ def build_overlay(
                 write_single_band_raster(
                     config.output_dir
                     / "rasters"
-                    / f"{tile.tile_id}_embedding_change_{period}y.tif",
+                    / f"{tile_id}_embedding_change_{period}y.tif",
                     period_changes[period],
                     base.display_transform,
                     base.crs,
@@ -919,12 +990,16 @@ def build_overlay(
         for row_idx in range(height):
             for col_idx in range(width):
                 cell_geom = pixel_polygon(base.display_transform, row_idx, col_idx)
-                clipped_geom = cell_geom.intersection(boundary_geom_proj)
-                if clipped_geom.is_empty or clipped_geom.area <= 0:
-                    continue
-                coverage_fraction = clipped_geom.area / max(cell_geom.area, 1e-9)
+                if tile_is_inside_boundary:
+                    clipped_geom = cell_geom
+                    coverage_fraction = 1.0
+                else:
+                    clipped_geom = cell_geom.intersection(boundary_geom_proj)
+                    if clipped_geom.is_empty or clipped_geom.area <= 0:
+                        continue
+                    coverage_fraction = clipped_geom.area / max(cell_geom.area, 1e-9)
                 feature: dict[str, Any] = {
-                    "tile_id": str(tile.tile_id),
+                    "tile_id": tile_id,
                     "row": row_idx,
                     "col": col_idx,
                     "base_year": config.base_year,
@@ -1558,7 +1633,7 @@ def fetch_population_display(
         raw_window = from_bounds(*tile_bounds, transform=src.transform)
         if raw_window.width <= 0 or raw_window.height <= 0:
             return np.zeros(display_shape, dtype=np.float32)
-        full_window = Window(col_off=0, row_off=0, width=src.width, height=src.height)
+        full_window = Window.from_slices((0, src.height), (0, src.width))
         clipped_window = raw_window.intersection(full_window)
         col_off = max(0, math.floor(clipped_window.col_off))
         row_off = max(0, math.floor(clipped_window.row_off))
@@ -1572,12 +1647,7 @@ def fetch_population_display(
         )
         if col_end <= col_off or row_end <= row_off:
             return np.zeros(display_shape, dtype=np.float32)
-        window = Window(
-            col_off=col_off,
-            row_off=row_off,
-            width=col_end - col_off,
-            height=row_end - row_off,
-        )
+        window = Window.from_slices((row_off, row_end), (col_off, col_end))
         data = src.read(1, window=window, masked=True).astype(np.float32)
         window_transform = src.window_transform(window)
 
