@@ -374,10 +374,16 @@ def process_tile_year(
     if cached_tile is not None:
         return cached_tile
 
+    fetch_raster = True
     if composite_path.exists():
-        composite, transform, crs = read_raster(composite_path)
-        scene_count = int(read_tags(composite_path).get("scene_count", "0"))
-    else:
+        try:
+            composite, transform, crs = read_raster(composite_path)
+            scene_count = int(read_tags(composite_path).get("scene_count", "0"))
+            fetch_raster = False
+        except:
+            composite_path.unlink(missing_ok=True)
+
+    if fetch_raster:
         composite_data = fetch_sentinel2_composite(
             tile_geometry=tile_geometry,
             tile_crs=tile_crs,
@@ -386,6 +392,7 @@ def process_tile_year(
         )
         if composite_data is None:
             return None
+
         composite, transform, crs, scene_count = composite_data
         if config.save_composites:
             write_multiband_raster(
