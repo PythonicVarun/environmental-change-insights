@@ -1,0 +1,185 @@
+{
+  "metadata": {
+    "label": "Chengalputtu, Tamil N\u0101du, IND",
+    "country_iso3": "IND",
+    "admin_level": "ADM2",
+    "state_name": "Tamil N\u0101du",
+    "district_name": "Chengalputtu",
+    "area_sq_km": 1741.1604266307472,
+    "generated_at_utc": "2026-04-28",
+    "population_source": "WorldPop Global 2 constrained 1km population counts",
+    "population_citation_url": "https://www.worldpop.org/methods/populations/",
+    "population_license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "pollution_source": "Sentinel-2 L2A AOT aerosol optical thickness proxy",
+    "pollution_citation_url": "https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html",
+    "pollution_note": "Pollution uses Sentinel-2 aerosol optical thickness as an annual aerosol proxy, not direct PM2.5 or gas concentration.",
+    "workers": 4,
+    "torch_threads_per_worker": 1,
+    "tile_display_cache_hits": 653,
+    "tile_display_cache_misses": 33,
+    "tile_display_cache_hit_rate": 95.19,
+    "coverage_sq_km": 1741.16,
+    "coverage_percent": 100.0,
+    "tile_count": 343,
+    "partial_coverage": false,
+    "ward_overlay_available": true,
+    "ward_count": 4
+  },
+  "config": {
+    "base_year": 2025,
+    "periods": [
+      10
+    ],
+    "model_name": "tiny",
+    "tile_size_m": 2560,
+    "workers": 4,
+    "include_population": true,
+    "include_pollution": true,
+    "display_cell_size_m": 160
+  },
+  "scene_counts": {
+    "2015": 1714,
+    "2025": 15407
+  },
+  "feature_count": 69331,
+  "periods": {
+    "10y": {
+      "metrics": {
+        "embedding_change_median": 0.003894,
+        "embedding_change_p95": 0.006676,
+        "vegetation_delta_mean": -0.278839,
+        "water_delta_mean": 0.16592,
+        "urban_delta_mean": 0.241529,
+        "bare_soil_delta_mean": 0.253882,
+        "pollution_delta_mean": 0.176066,
+        "population_base_total": 1731097.889,
+        "population_reference_total": 1653210.112,
+        "population_delta_total": 77887.778,
+        "population_delta_mean": 1.123419,
+        "population_pct_change_total": 4.711
+      },
+      "story_counts": {
+        "Urban expansion replacing vegetation": 43870,
+        "Water gain or inundation": 12061,
+        "Water retreat or drying": 11955,
+        "Mixed land-cover change": 758,
+        "Greening or crop intensification": 634,
+        "Bare-soil or industrial expansion": 53
+      },
+      "hotspots": [
+        {
+          "latitude": 12.909276,
+          "longitude": 80.047105,
+          "embedding_change": 0.038484,
+          "vegetation_delta": 0.6675,
+          "water_delta": -0.487105,
+          "urban_delta": -0.162963,
+          "bare_soil_delta": -0.122665,
+          "pollution_delta": 0.186,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_235",
+          "population_delta": 0.844879,
+          "population_pct_change": 4.670996
+        },
+        {
+          "latitude": 12.945631,
+          "longitude": 80.100065,
+          "embedding_change": 0.035971,
+          "vegetation_delta": 0.429221,
+          "water_delta": -0.576551,
+          "urban_delta": 0.126078,
+          "bare_soil_delta": 0.123294,
+          "pollution_delta": 0.161158,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_257",
+          "population_delta": 1.341383,
+          "population_pct_change": 5.168762
+        },
+        {
+          "latitude": 13.019144,
+          "longitude": 80.026031,
+          "embedding_change": 0.035772,
+          "vegetation_delta": 0.19142,
+          "water_delta": 0.08644,
+          "urban_delta": -0.116538,
+          "bare_soil_delta": -0.136457,
+          "pollution_delta": 0.195857,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_324",
+          "population_delta": 1.68325,
+          "population_pct_change": 4.860392
+        },
+        {
+          "latitude": 12.946995,
+          "longitude": 80.076461,
+          "embedding_change": 0.035526,
+          "vegetation_delta": 0.27601,
+          "water_delta": -0.338335,
+          "urban_delta": 0.051515,
+          "bare_soil_delta": 0.066401,
+          "pollution_delta": 0.189,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_256",
+          "population_delta": 2.178185,
+          "population_pct_change": 4.815333
+        },
+        {
+          "latitude": 12.947,
+          "longitude": 80.077936,
+          "embedding_change": 0.035496,
+          "vegetation_delta": -0.030125,
+          "water_delta": 0.088812,
+          "urban_delta": 0.050546,
+          "bare_soil_delta": 0.053657,
+          "pollution_delta": 0.168375,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_256",
+          "population_delta": 2.178185,
+          "population_pct_change": 4.815333
+        },
+        {
+          "latitude": 13.001952,
+          "longitude": 80.071832,
+          "embedding_change": 0.035414,
+          "vegetation_delta": -0.285249,
+          "water_delta": 0.328646,
+          "urban_delta": 0.079222,
+          "bare_soil_delta": 0.018883,
+          "pollution_delta": 0.194635,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_310",
+          "population_delta": 0.0,
+          "population_pct_change": null
+        },
+        {
+          "latitude": 12.909271,
+          "longitude": 80.04563,
+          "embedding_change": 0.03516,
+          "vegetation_delta": 0.634094,
+          "water_delta": -0.452835,
+          "urban_delta": -0.185546,
+          "bare_soil_delta": -0.133727,
+          "pollution_delta": 0.186,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_235",
+          "population_delta": 0.844879,
+          "population_pct_change": 4.670996
+        },
+        {
+          "latitude": 13.019138,
+          "longitude": 80.024556,
+          "embedding_change": 0.034871,
+          "vegetation_delta": 0.227704,
+          "water_delta": 0.073675,
+          "urban_delta": -0.126736,
+          "bare_soil_delta": -0.121922,
+          "pollution_delta": 0.207269,
+          "story": "Greening or crop intensification",
+          "tile_id": "tile_324",
+          "population_delta": 2.03714,
+          "population_pct_change": 5.006351
+        }
+      ]
+    }
+  }
+}
