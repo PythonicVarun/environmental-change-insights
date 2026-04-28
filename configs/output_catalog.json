@@ -37,6 +37,15 @@
             "description": "5-year change run for Gurgaon district in Haryana.",
             "tags": ["India", "Haryana", "Gurgaon", "5y", "District", "Wards"],
             "has_wards": true
+        },
+        {
+            "id": "chengalputtu",
+            "title": "Chengalputtu 10-Year Change",
+            "group": "District",
+            "path": "outputs/chengalputtu",
+            "description": "10-year change run for Chengalputtu district in Tamil Nadu.",
+            "tags": ["India", "Tamil Nadu", "Chengalputtu", "10y", "District", "Wards"],
+            "has_wards": true
         }
     ]
 }
