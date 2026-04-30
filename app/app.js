@@ -505,7 +505,7 @@ function applyHistoricalImagery(force = false) {
 
     state.historicalLayer = L.layerGroup(
         tiles.map((tile) =>
-            L.imageOverlay(`../${tile.image}`, tile.bounds, {
+            L.imageOverlay(`${tile.image}`, tile.bounds, {
                 pane: "historicalPane",
                 opacity: 0.95,
                 interactive: false,
@@ -622,15 +622,15 @@ function populateUnitSelect() {
 
 async function loadData() {
     const [summary, overlay, boundary, wardOverlay, historicalImagery] = await Promise.all([
-        fetch("../summary.json").then((response) => response.json()),
-        fetch("../overlay.geojson").then((response) => response.json()),
-        fetch("../boundary.geojson")
+        fetch("summary.json").then((response) => response.json()),
+        fetch("overlay.geojson").then((response) => response.json()),
+        fetch("boundary.geojson")
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
-        fetch("../ward_overlay.geojson")
+        fetch("ward_overlay.geojson")
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
-        fetch("../historical_imagery.json")
+        fetch("historical_imagery.json")
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
     ]);

@@ -1634,7 +1634,7 @@ def render_report(summary: dict[str, Any]) -> str:
 
 def copy_ui_bundle(output_dir: Path) -> None:
     source_dir = Path(__file__).resolve().parents[2] / "app"
-    target_dir = output_dir / "ui"
+    target_dir = output_dir
     target_dir.mkdir(parents=True, exist_ok=True)
     for name in ["index.html", "app.js", "styles.css"]:
         shutil.copy2(source_dir / name, target_dir / name)
