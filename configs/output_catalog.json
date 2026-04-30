@@ -1,7 +1,5 @@
 {
     "title": "OlmoEarth Output Library",
-    "subtitle": "One place to browse generated analysis bundles, open their interactive maps, and review summary stats before publication.",
-    "hint": "To add a new output, append one object to `configs/output_catalog.json` with its `path` and optional labels/tags.",
     "outputs": [
         {
             "id": "smoke-shahdara-1y",

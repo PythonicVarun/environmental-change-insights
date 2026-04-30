@@ -247,9 +247,6 @@ async function main() {
     document.getElementById("siteSubtitle").textContent =
         catalog.subtitle ||
         "Browse generated outputs, open map overlays, and inspect summary files from one place.";
-    document.getElementById("sectionHint").textContent =
-        catalog.hint ||
-        "Add a new analysis by appending one entry to the catalog JSON file.";
 
     const entries = catalog.outputs ?? [];
     const analyses = await Promise.all(
