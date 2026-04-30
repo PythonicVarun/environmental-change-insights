@@ -30,7 +30,7 @@ from olmoearth_pretrain.data.normalize import Normalizer, Strategy
 from olmoearth_pretrain.datatypes import MaskedOlmoEarthSample, MaskValue
 from olmoearth_pretrain.model_loader import ModelID, load_model_from_id
 from pystac_client import Client
-from rasterio.transform import from_origin
+from rasterio.transform import array_bounds, from_origin
 from rasterio.warp import transform_bounds
 from rasterio.windows import Window, from_bounds
 from shapely.geometry import box
@@ -266,6 +266,11 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         round(100.0 * cache_hits / cache_total, 2) if cache_total else 0.0
     )
 
+    historical_imagery = export_historical_imagery_manifest(
+        year_results=year_results,
+        output_dir=config.output_dir,
+    )
+
     overlay = build_overlay(boundary, tiles, year_results, config)
     overlay_path = config.output_dir / "overlay.geojson"
     overlay.to_file(overlay_path, driver="GeoJSON")
@@ -297,7 +302,11 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         metadata["ward_count"] = 0
 
     summary = build_summary(metadata, overlay, year_results, config)
+    summary["historical_imagery"] = historical_imagery
     (config.output_dir / "summary.json").write_text(json.dumps(summary, indent=2))
+    (config.output_dir / "historical_imagery.json").write_text(
+        json.dumps(historical_imagery, indent=2)
+    )
     (config.output_dir / "report.md").write_text(render_report(summary))
 
     copy_ui_bundle(config.output_dir)
@@ -359,6 +368,9 @@ def process_tile_year(
 ) -> TileYearData | None:
     year_dir = config.output_dir / "years" / str(year)
     year_dir.mkdir(parents=True, exist_ok=True)
+    historical_preview_path = (
+        config.output_dir / "historical_imagery" / str(year) / f"{tile_id}.png"
+    )
     composite_path = year_dir / f"{tile_id}_composite.tif"
     pollution_path = year_dir / f"{tile_id}_pollution_proxy.tif"
     processed_cache_path = year_dir / f"{tile_id}_processed_display.npz"
@@ -379,6 +391,16 @@ def process_tile_year(
         expected_context=expected_cache_context,
     )
     if cached_tile is not None:
+        if not historical_preview_path.exists() and composite_path.exists():
+            try:
+                cached_composite, _, _ = read_raster(composite_path)
+                write_historical_preview_image(
+                    historical_preview_path,
+                    cached_composite,
+                    config.patch_size * config.display_aggregation,
+                )
+            except Exception:
+                pass
         return cached_tile
 
     pollution: np.ndarray | None = None
@@ -421,6 +443,16 @@ def process_tile_year(
                 transform,
                 crs,
             )
+
+    if not historical_preview_path.exists():
+        try:
+            write_historical_preview_image(
+                historical_preview_path,
+                composite,
+                config.patch_size * config.display_aggregation,
+            )
+        except Exception:
+            pass
 
     embeddings = compute_embeddings(
         composite=composite,
@@ -511,6 +543,113 @@ def process_tile_year(
         pass
 
     return tile_year_data
+
+
+def export_historical_imagery_manifest(
+    *,
+    year_results: dict[int, dict[str, TileYearData]],
+    output_dir: Path,
+) -> dict[str, Any]:
+    years: dict[str, Any] = {}
+    available_years: list[int] = []
+    for year in sorted(year_results):
+        tile_entries: list[dict[str, Any]] = []
+        for tile_id, tile_data in sorted(year_results[year].items()):
+            preview_rel = Path("historical_imagery") / str(year) / f"{tile_id}.png"
+            preview_path = output_dir / preview_rel
+            if not preview_path.exists():
+                continue
+            tile_entries.append(
+                {
+                    "tile_id": tile_id,
+                    "image": preview_rel.as_posix(),
+                    "bounds": historical_preview_bounds(tile_data),
+                    "scene_count": int(tile_data.scene_count),
+                }
+            )
+        if tile_entries:
+            years[str(year)] = {"year": int(year), "tiles": tile_entries}
+            available_years.append(int(year))
+    return {
+        "available": bool(available_years),
+        "available_years": available_years,
+        "years": years,
+    }
+
+
+def historical_preview_bounds(tile_data: TileYearData) -> list[list[float]]:
+    height, width = tile_data.ndvi_display.shape
+    left, bottom, right, top = array_bounds(
+        height,
+        width,
+        tile_data.display_transform,
+    )
+    west, south, east, north = transform_bounds(
+        tile_data.crs,
+        "EPSG:4326",
+        left,
+        bottom,
+        right,
+        top,
+        densify_pts=21,
+    )
+    return [
+        [round(float(south), 6), round(float(west), 6)],
+        [round(float(north), 6), round(float(east), 6)],
+    ]
+
+
+def write_historical_preview_image(
+    path: Path,
+    composite: np.ndarray,
+    display_factor: int,
+) -> None:
+    rgba = render_historical_preview_rgba(composite, display_factor)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with rasterio.open(
+        path,
+        "w",
+        driver="PNG",
+        height=rgba.shape[1],
+        width=rgba.shape[2],
+        count=4,
+        dtype="uint8",
+    ) as dst:
+        dst.write(rgba)
+
+
+def render_historical_preview_rgba(
+    composite: np.ndarray,
+    display_factor: int,
+) -> np.ndarray:
+    source_rgb = composite[[RED_IDX, GREEN_IDX, BLUE_IDX]].astype(np.float32)
+    if display_factor > 1:
+        rgb = np.stack(
+            [
+                downsample_mean(source_rgb[band_idx], display_factor)
+                for band_idx in range(source_rgb.shape[0])
+            ]
+        ).astype(np.float32)
+    else:
+        rgb = source_rgb
+    valid = np.all(np.isfinite(rgb), axis=0)
+    rgba = np.zeros((4, rgb.shape[1], rgb.shape[2]), dtype=np.uint8)
+    if not np.any(valid):
+        return rgba
+
+    samples = rgb[:, valid]
+    lows = np.percentile(samples, 2, axis=1)
+    highs = np.percentile(samples, 98, axis=1)
+    scales = np.maximum(highs - lows, 1e-6)
+    stretched = np.clip(
+        (rgb - lows[:, None, None]) / scales[:, None, None],
+        0.0,
+        1.0,
+    )
+    gamma_corrected = np.power(stretched, 1.0 / 1.2)
+    rgba[:3] = np.round(gamma_corrected * 255.0).astype(np.uint8)
+    rgba[3] = np.where(valid, 255, 0).astype(np.uint8)
+    return rgba
 
 
 def raster_file_signature(path: Path) -> dict[str, int] | None:

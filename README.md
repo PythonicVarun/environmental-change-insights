@@ -66,6 +66,11 @@ Reruns also reuse per-tile processed caches when inputs are unchanged:
 - `outputs/.../years/<year>/<tile_id>_processed_display.npz`
 - `outputs/.../years/<year>/<tile_id>_processed_display.meta.json`
 
+Browser previews for the historical map toggle are also exported per year:
+
+- `outputs/.../historical_imagery/<year>/<tile_id>.png`
+- `outputs/.../historical_imagery.json`
+
 Cache effectiveness is reported in `summary.json` under metadata fields:
 
 - `tile_display_cache_hits`
@@ -144,6 +149,7 @@ Do not open `ui/index.html` directly with `file://`. That can break local `fetch
 The UI includes:
 
 - basemap selector for OSM, light basemap, imagery, or no basemap
+- historical-image selector for the timeline-matched annual Sentinel-2 composite or the base year composite
 - analysis-unit switcher for cell overlays and ward overlays when ward boundaries are available
 - metric selector for embedding shift, vegetation, water, urbanization, bare soil, pollution proxy, and population delta
 - period slider for 1y / 5y / 10y comparisons
