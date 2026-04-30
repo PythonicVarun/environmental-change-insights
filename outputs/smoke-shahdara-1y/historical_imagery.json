@@ -1,0 +1,319 @@
+{
+  "available": true,
+  "available_years": [
+    2024,
+    2025
+  ],
+  "years": {
+    "2024": {
+      "year": 2024,
+      "tiles": [
+        {
+          "tile_id": "tile_000",
+          "image": "historical_imagery/2024/tile_000.png",
+          "bounds": [
+            [
+              28.661814,
+              77.231953
+            ],
+            [
+              28.685338,
+              77.258627
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_001",
+          "image": "historical_imagery/2024/tile_001.png",
+          "bounds": [
+            [
+              28.661375,
+              77.258131
+            ],
+            [
+              28.684904,
+              77.28481
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_002",
+          "image": "historical_imagery/2024/tile_002.png",
+          "bounds": [
+            [
+              28.660931,
+              77.284309
+            ],
+            [
+              28.684464,
+              77.310993
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_003",
+          "image": "historical_imagery/2024/tile_003.png",
+          "bounds": [
+            [
+              28.660481,
+              77.310487
+            ],
+            [
+              28.684019,
+              77.337176
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_004",
+          "image": "historical_imagery/2024/tile_004.png",
+          "bounds": [
+            [
+              28.684904,
+              77.232443
+            ],
+            [
+              28.708428,
+              77.259123
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_005",
+          "image": "historical_imagery/2024/tile_005.png",
+          "bounds": [
+            [
+              28.684464,
+              77.258627
+            ],
+            [
+              28.707993,
+              77.285312
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_006",
+          "image": "historical_imagery/2024/tile_006.png",
+          "bounds": [
+            [
+              28.684019,
+              77.28481
+            ],
+            [
+              28.707553,
+              77.311501
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_007",
+          "image": "historical_imagery/2024/tile_007.png",
+          "bounds": [
+            [
+              28.68357,
+              77.310993
+            ],
+            [
+              28.707108,
+              77.337689
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_008",
+          "image": "historical_imagery/2024/tile_008.png",
+          "bounds": [
+            [
+              28.707108,
+              77.285312
+            ],
+            [
+              28.730642,
+              77.312009
+            ]
+          ],
+          "scene_count": 39
+        },
+        {
+          "tile_id": "tile_009",
+          "image": "historical_imagery/2024/tile_009.png",
+          "bounds": [
+            [
+              28.706658,
+              77.311501
+            ],
+            [
+              28.730197,
+              77.338203
+            ]
+          ],
+          "scene_count": 39
+        }
+      ]
+    },
+    "2025": {
+      "year": 2025,
+      "tiles": [
+        {
+          "tile_id": "tile_000",
+          "image": "historical_imagery/2025/tile_000.png",
+          "bounds": [
+            [
+              28.661814,
+              77.231953
+            ],
+            [
+              28.685338,
+              77.258627
+            ]
+          ],
+          "scene_count": 52
+        },
+        {
+          "tile_id": "tile_001",
+          "image": "historical_imagery/2025/tile_001.png",
+          "bounds": [
+            [
+              28.661375,
+              77.258131
+            ],
+            [
+              28.684904,
+              77.28481
+            ]
+          ],
+          "scene_count": 52
+        },
+        {
+          "tile_id": "tile_002",
+          "image": "historical_imagery/2025/tile_002.png",
+          "bounds": [
+            [
+              28.660931,
+              77.284309
+            ],
+            [
+              28.684464,
+              77.310993
+            ]
+          ],
+          "scene_count": 52
+        },
+        {
+          "tile_id": "tile_003",
+          "image": "historical_imagery/2025/tile_003.png",
+          "bounds": [
+            [
+              28.660481,
+              77.310487
+            ],
+            [
+              28.684019,
+              77.337176
+            ]
+          ],
+          "scene_count": 52
+        },
+        {
+          "tile_id": "tile_004",
+          "image": "historical_imagery/2025/tile_004.png",
+          "bounds": [
+            [
+              28.684904,
+              77.232443
+            ],
+            [
+              28.708428,
+              77.259123
+            ]
+          ],
+          "scene_count": 51
+        },
+        {
+          "tile_id": "tile_005",
+          "image": "historical_imagery/2025/tile_005.png",
+          "bounds": [
+            [
+              28.684464,
+              77.258627
+            ],
+            [
+              28.707993,
+              77.285312
+            ]
+          ],
+          "scene_count": 51
+        },
+        {
+          "tile_id": "tile_006",
+          "image": "historical_imagery/2025/tile_006.png",
+          "bounds": [
+            [
+              28.684019,
+              77.28481
+            ],
+            [
+              28.707553,
+              77.311501
+            ]
+          ],
+          "scene_count": 51
+        },
+        {
+          "tile_id": "tile_007",
+          "image": "historical_imagery/2025/tile_007.png",
+          "bounds": [
+            [
+              28.68357,
+              77.310993
+            ],
+            [
+              28.707108,
+              77.337689
+            ]
+          ],
+          "scene_count": 51
+        },
+        {
+          "tile_id": "tile_008",
+          "image": "historical_imagery/2025/tile_008.png",
+          "bounds": [
+            [
+              28.707108,
+              77.285312
+            ],
+            [
+              28.730642,
+              77.312009
+            ]
+          ],
+          "scene_count": 51
+        },
+        {
+          "tile_id": "tile_009",
+          "image": "historical_imagery/2025/tile_009.png",
+          "bounds": [
+            [
+              28.706658,
+              77.311501
+            ],
+            [
+              28.730197,
+              77.338203
+            ]
+          ],
+          "scene_count": 51
+        }
+      ]
+    }
+  }
+}

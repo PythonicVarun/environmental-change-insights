@@ -1,136 +1,503 @@
 {
-    "metadata": {
-        "label": "Shahdara, Delhi, IND",
-        "country_iso3": "IND",
-        "admin_level": "ADM2",
-        "state_name": "Delhi",
-        "district_name": "Shahdara",
-        "area_sq_km": 26.621726938832214,
-        "generated_at_utc": "2026-04-24",
-        "coverage_sq_km": 26.622,
-        "coverage_percent": 99.999,
-        "tile_count": 10,
-        "partial_coverage": false
-    },
-    "config": {
-        "base_year": 2025,
-        "periods": [1],
-        "model_name": "tiny",
-        "tile_size_m": 2560,
-        "display_cell_size_m": 160
-    },
-    "scene_counts": {
-        "2024": 390,
-        "2025": 514
-    },
-    "feature_count": 1147,
-    "periods": {
-        "1y": {
-            "metrics": {
-                "embedding_change_median": 0.000512,
-                "embedding_change_p95": 0.001147,
-                "vegetation_delta_mean": 0.019342,
-                "water_delta_mean": -0.001801,
-                "urban_delta_mean": -0.003999,
-                "bare_soil_delta_mean": -0.014108
-            },
-            "story_counts": {
-                "Mixed land-cover change": 1128,
-                "Greening or crop intensification": 10,
-                "Water gain or inundation": 4,
-                "Urban expansion replacing vegetation": 3,
-                "Water retreat or drying": 2
-            },
-            "hotspots": [
-                {
-                    "latitude": 28.704845,
-                    "longitude": 77.317182,
-                    "embedding_change": 0.003191,
-                    "vegetation_delta": 0.215103,
-                    "water_delta": -0.205772,
-                    "urban_delta": -0.046493,
-                    "bare_soil_delta": -0.065022,
-                    "story": "Water retreat or drying",
-                    "tile_id": "tile_007"
-                },
-                {
-                    "latitude": 28.682834,
-                    "longitude": 77.252853,
-                    "embedding_change": 0.003136,
-                    "vegetation_delta": 0.204844,
-                    "water_delta": -0.099519,
-                    "urban_delta": -0.106942,
-                    "bare_soil_delta": -0.102391,
-                    "story": "Water retreat or drying",
-                    "tile_id": "tile_000"
-                },
-                {
-                    "latitude": 28.671714,
-                    "longitude": 77.233325,
-                    "embedding_change": 0.00228,
-                    "vegetation_delta": 0.069367,
-                    "water_delta": 0.044929,
-                    "urban_delta": -0.090758,
-                    "bare_soil_delta": -0.062641,
-                    "story": "Mixed land-cover change",
-                    "tile_id": "tile_000"
-                },
-                {
-                    "latitude": 28.674203,
-                    "longitude": 77.251031,
-                    "embedding_change": 0.002237,
-                    "vegetation_delta": 0.120584,
-                    "water_delta": -0.007236,
-                    "urban_delta": -0.066173,
-                    "bare_soil_delta": -0.07424,
-                    "story": "Greening or crop intensification",
-                    "tile_id": "tile_000"
-                },
-                {
-                    "latitude": 28.674039,
-                    "longitude": 77.260849,
-                    "embedding_change": 0.002188,
-                    "vegetation_delta": 0.013934,
-                    "water_delta": 0.018232,
-                    "urban_delta": -0.000862,
-                    "bare_soil_delta": -0.019297,
-                    "story": "Mixed land-cover change",
-                    "tile_id": "tile_001"
-                },
-                {
-                    "latitude": 28.668797,
-                    "longitude": 77.234845,
-                    "embedding_change": 0.002097,
-                    "vegetation_delta": 0.15593,
-                    "water_delta": -0.031939,
-                    "urban_delta": -0.097762,
-                    "bare_soil_delta": -0.095582,
-                    "story": "Greening or crop intensification",
-                    "tile_id": "tile_000"
-                },
-                {
-                    "latitude": 28.681897,
-                    "longitude": 77.308491,
-                    "embedding_change": 0.002094,
-                    "vegetation_delta": 0.106001,
-                    "water_delta": 0.037605,
-                    "urban_delta": -0.08494,
-                    "bare_soil_delta": -0.092436,
-                    "story": "Greening or crop intensification",
-                    "tile_id": "tile_002"
-                },
-                {
-                    "latitude": 28.671235,
-                    "longitude": 77.255878,
-                    "embedding_change": 0.001855,
-                    "vegetation_delta": 0.008106,
-                    "water_delta": 0.030611,
-                    "urban_delta": -0.029238,
-                    "bare_soil_delta": -0.024145,
-                    "story": "Mixed land-cover change",
-                    "tile_id": "tile_000"
-                }
-            ]
+  "metadata": {
+    "label": "Shahdara, Delhi, IND",
+    "country_iso3": "IND",
+    "admin_level": "ADM2",
+    "state_name": "Delhi",
+    "district_name": "Shahdara",
+    "area_sq_km": 26.621726938832214,
+    "generated_at_utc": "2026-04-30",
+    "population_source": "WorldPop Global 2 constrained 1km population counts",
+    "population_citation_url": "https://www.worldpop.org/methods/populations/",
+    "population_license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "pollution_source": "Sentinel-2 L2A AOT aerosol optical thickness proxy",
+    "pollution_citation_url": "https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html",
+    "pollution_note": "Pollution uses Sentinel-2 aerosol optical thickness as an annual aerosol proxy, not direct PM2.5 or gas concentration.",
+    "workers": 4,
+    "torch_threads_per_worker": 1,
+    "tile_display_cache_hits": 7,
+    "tile_display_cache_misses": 13,
+    "tile_display_cache_hit_rate": 35.0,
+    "coverage_sq_km": 26.622,
+    "coverage_percent": 99.999,
+    "tile_count": 10,
+    "partial_coverage": false,
+    "ward_overlay_available": true,
+    "ward_count": 13
+  },
+  "config": {
+    "base_year": 2025,
+    "periods": [
+      1
+    ],
+    "model_name": "tiny",
+    "tile_size_m": 2560,
+    "workers": 4,
+    "include_population": true,
+    "include_pollution": true,
+    "display_cell_size_m": 160
+  },
+  "scene_counts": {
+    "2024": 390,
+    "2025": 514
+  },
+  "feature_count": 1147,
+  "periods": {
+    "1y": {
+      "metrics": {
+        "embedding_change_median": 0.000511,
+        "embedding_change_p95": 0.001147,
+        "vegetation_delta_mean": 0.019342,
+        "water_delta_mean": -0.001801,
+        "urban_delta_mean": -0.003999,
+        "bare_soil_delta_mean": -0.014108,
+        "pollution_delta_mean": -0.063301,
+        "population_base_total": 854662.696,
+        "population_reference_total": 842247.495,
+        "population_delta_total": 12415.201,
+        "population_delta_mean": 10.824064,
+        "population_pct_change_total": 1.474
+      },
+      "story_counts": {
+        "Mixed land-cover change": 1128,
+        "Greening or crop intensification": 10,
+        "Water gain or inundation": 4,
+        "Urban expansion replacing vegetation": 3,
+        "Water retreat or drying": 2
+      },
+      "hotspots": [
+        {
+          "latitude": 28.704845,
+          "longitude": 77.317182,
+          "embedding_change": 0.003191,
+          "vegetation_delta": 0.215103,
+          "water_delta": -0.205772,
+          "urban_delta": -0.046493,
+          "bare_soil_delta": -0.065022,
+          "pollution_delta": -0.064,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_007",
+          "population_delta": 14.803467,
+          "population_pct_change": 1.770288
+        },
+        {
+          "latitude": 28.682834,
+          "longitude": 77.252853,
+          "embedding_change": 0.003131,
+          "vegetation_delta": 0.204844,
+          "water_delta": -0.099519,
+          "urban_delta": -0.106942,
+          "bare_soil_delta": -0.102391,
+          "pollution_delta": -0.05543,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_000",
+          "population_delta": 4.900574,
+          "population_pct_change": 1.582044
+        },
+        {
+          "latitude": 28.671714,
+          "longitude": 77.233325,
+          "embedding_change": 0.002277,
+          "vegetation_delta": 0.069367,
+          "water_delta": 0.044929,
+          "urban_delta": -0.090758,
+          "bare_soil_delta": -0.062641,
+          "pollution_delta": -0.061559,
+          "story": "Mixed land-cover change",
+          "tile_id": "tile_000",
+          "population_delta": 3.225638,
+          "population_pct_change": 1.150519
+        },
+        {
+          "latitude": 28.674203,
+          "longitude": 77.251031,
+          "embedding_change": 0.002238,
+          "vegetation_delta": 0.120584,
+          "water_delta": -0.007236,
+          "urban_delta": -0.066173,
+          "bare_soil_delta": -0.07424,
+          "pollution_delta": -0.063637,
+          "story": "Greening or crop intensification",
+          "tile_id": "tile_000",
+          "population_delta": 8.208496,
+          "population_pct_change": 1.282924
+        },
+        {
+          "latitude": 28.674039,
+          "longitude": 77.260849,
+          "embedding_change": 0.002189,
+          "vegetation_delta": 0.013934,
+          "water_delta": 0.018232,
+          "urban_delta": -0.000862,
+          "bare_soil_delta": -0.019297,
+          "pollution_delta": -0.060055,
+          "story": "Mixed land-cover change",
+          "tile_id": "tile_001",
+          "population_delta": 11.387085,
+          "population_pct_change": 1.344482
+        },
+        {
+          "latitude": 28.668797,
+          "longitude": 77.234845,
+          "embedding_change": 0.002095,
+          "vegetation_delta": 0.15593,
+          "water_delta": -0.031939,
+          "urban_delta": -0.097762,
+          "bare_soil_delta": -0.095582,
+          "pollution_delta": -0.064102,
+          "story": "Greening or crop intensification",
+          "tile_id": "tile_000",
+          "population_delta": 1.047423,
+          "population_pct_change": 1.25831
+        },
+        {
+          "latitude": 28.681897,
+          "longitude": 77.308491,
+          "embedding_change": 0.002094,
+          "vegetation_delta": 0.106001,
+          "water_delta": 0.037605,
+          "urban_delta": -0.08494,
+          "bare_soil_delta": -0.092436,
+          "pollution_delta": -0.064,
+          "story": "Greening or crop intensification",
+          "tile_id": "tile_002",
+          "population_delta": 11.102478,
+          "population_pct_change": 1.1948
+        },
+        {
+          "latitude": 28.671235,
+          "longitude": 77.255878,
+          "embedding_change": 0.001859,
+          "vegetation_delta": 0.008106,
+          "water_delta": 0.030611,
+          "urban_delta": -0.029238,
+          "bare_soil_delta": -0.024145,
+          "pollution_delta": -0.064,
+          "story": "Mixed land-cover change",
+          "tile_id": "tile_000",
+          "population_delta": 8.208496,
+          "population_pct_change": 1.282924
         }
+      ]
     }
+  },
+  "historical_imagery": {
+    "available": true,
+    "available_years": [
+      2024,
+      2025
+    ],
+    "years": {
+      "2024": {
+        "year": 2024,
+        "tiles": [
+          {
+            "tile_id": "tile_000",
+            "image": "historical_imagery/2024/tile_000.png",
+            "bounds": [
+              [
+                28.661814,
+                77.231953
+              ],
+              [
+                28.685338,
+                77.258627
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_001",
+            "image": "historical_imagery/2024/tile_001.png",
+            "bounds": [
+              [
+                28.661375,
+                77.258131
+              ],
+              [
+                28.684904,
+                77.28481
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_002",
+            "image": "historical_imagery/2024/tile_002.png",
+            "bounds": [
+              [
+                28.660931,
+                77.284309
+              ],
+              [
+                28.684464,
+                77.310993
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_003",
+            "image": "historical_imagery/2024/tile_003.png",
+            "bounds": [
+              [
+                28.660481,
+                77.310487
+              ],
+              [
+                28.684019,
+                77.337176
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_004",
+            "image": "historical_imagery/2024/tile_004.png",
+            "bounds": [
+              [
+                28.684904,
+                77.232443
+              ],
+              [
+                28.708428,
+                77.259123
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_005",
+            "image": "historical_imagery/2024/tile_005.png",
+            "bounds": [
+              [
+                28.684464,
+                77.258627
+              ],
+              [
+                28.707993,
+                77.285312
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_006",
+            "image": "historical_imagery/2024/tile_006.png",
+            "bounds": [
+              [
+                28.684019,
+                77.28481
+              ],
+              [
+                28.707553,
+                77.311501
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_007",
+            "image": "historical_imagery/2024/tile_007.png",
+            "bounds": [
+              [
+                28.68357,
+                77.310993
+              ],
+              [
+                28.707108,
+                77.337689
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_008",
+            "image": "historical_imagery/2024/tile_008.png",
+            "bounds": [
+              [
+                28.707108,
+                77.285312
+              ],
+              [
+                28.730642,
+                77.312009
+              ]
+            ],
+            "scene_count": 39
+          },
+          {
+            "tile_id": "tile_009",
+            "image": "historical_imagery/2024/tile_009.png",
+            "bounds": [
+              [
+                28.706658,
+                77.311501
+              ],
+              [
+                28.730197,
+                77.338203
+              ]
+            ],
+            "scene_count": 39
+          }
+        ]
+      },
+      "2025": {
+        "year": 2025,
+        "tiles": [
+          {
+            "tile_id": "tile_000",
+            "image": "historical_imagery/2025/tile_000.png",
+            "bounds": [
+              [
+                28.661814,
+                77.231953
+              ],
+              [
+                28.685338,
+                77.258627
+              ]
+            ],
+            "scene_count": 52
+          },
+          {
+            "tile_id": "tile_001",
+            "image": "historical_imagery/2025/tile_001.png",
+            "bounds": [
+              [
+                28.661375,
+                77.258131
+              ],
+              [
+                28.684904,
+                77.28481
+              ]
+            ],
+            "scene_count": 52
+          },
+          {
+            "tile_id": "tile_002",
+            "image": "historical_imagery/2025/tile_002.png",
+            "bounds": [
+              [
+                28.660931,
+                77.284309
+              ],
+              [
+                28.684464,
+                77.310993
+              ]
+            ],
+            "scene_count": 52
+          },
+          {
+            "tile_id": "tile_003",
+            "image": "historical_imagery/2025/tile_003.png",
+            "bounds": [
+              [
+                28.660481,
+                77.310487
+              ],
+              [
+                28.684019,
+                77.337176
+              ]
+            ],
+            "scene_count": 52
+          },
+          {
+            "tile_id": "tile_004",
+            "image": "historical_imagery/2025/tile_004.png",
+            "bounds": [
+              [
+                28.684904,
+                77.232443
+              ],
+              [
+                28.708428,
+                77.259123
+              ]
+            ],
+            "scene_count": 51
+          },
+          {
+            "tile_id": "tile_005",
+            "image": "historical_imagery/2025/tile_005.png",
+            "bounds": [
+              [
+                28.684464,
+                77.258627
+              ],
+              [
+                28.707993,
+                77.285312
+              ]
+            ],
+            "scene_count": 51
+          },
+          {
+            "tile_id": "tile_006",
+            "image": "historical_imagery/2025/tile_006.png",
+            "bounds": [
+              [
+                28.684019,
+                77.28481
+              ],
+              [
+                28.707553,
+                77.311501
+              ]
+            ],
+            "scene_count": 51
+          },
+          {
+            "tile_id": "tile_007",
+            "image": "historical_imagery/2025/tile_007.png",
+            "bounds": [
+              [
+                28.68357,
+                77.310993
+              ],
+              [
+                28.707108,
+                77.337689
+              ]
+            ],
+            "scene_count": 51
+          },
+          {
+            "tile_id": "tile_008",
+            "image": "historical_imagery/2025/tile_008.png",
+            "bounds": [
+              [
+                28.707108,
+                77.285312
+              ],
+              [
+                28.730642,
+                77.312009
+              ]
+            ],
+            "scene_count": 51
+          },
+          {
+            "tile_id": "tile_009",
+            "image": "historical_imagery/2025/tile_009.png",
+            "bounds": [
+              [
+                28.706658,
+                77.311501
+              ],
+              [
+                28.730197,
+                77.338203
+              ]
+            ],
+            "scene_count": 51
+          }
+        ]
+      }
+    }
+  }
 }
