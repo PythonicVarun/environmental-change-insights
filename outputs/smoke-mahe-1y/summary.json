@@ -6,13 +6,16 @@
     "state_name": "Puducherry",
     "district_name": "Mahe",
     "area_sq_km": 8.884805375448428,
-    "generated_at_utc": "2026-04-24",
+    "generated_at_utc": "2026-04-30",
     "population_source": "WorldPop Global 2 constrained 1km population counts",
     "population_citation_url": "https://www.worldpop.org/methods/populations/",
     "population_license_url": "https://creativecommons.org/licenses/by/4.0/",
     "pollution_source": "Sentinel-2 L2A AOT aerosol optical thickness proxy",
     "pollution_citation_url": "https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/S2L2A.html",
     "pollution_note": "Pollution uses Sentinel-2 aerosol optical thickness as an annual aerosol proxy, not direct PM2.5 or gas concentration.",
+    "tile_display_cache_hits": 1,
+    "tile_display_cache_misses": 9,
+    "tile_display_cache_hit_rate": 10.0,
     "coverage_sq_km": 8.885,
     "coverage_percent": 99.999,
     "tile_count": 5,
@@ -27,6 +30,7 @@
     ],
     "model_name": "tiny",
     "tile_size_m": 2560,
+    "workers": 1,
     "include_population": true,
     "include_pollution": true,
     "display_cell_size_m": 160
@@ -40,7 +44,7 @@
     "1y": {
       "metrics": {
         "embedding_change_median": 0.000519,
-        "embedding_change_p95": 0.000925,
+        "embedding_change_p95": 0.000926,
         "vegetation_delta_mean": 0.012131,
         "water_delta_mean": -0.005327,
         "urban_delta_mean": -0.009696,
@@ -60,7 +64,7 @@
         {
           "latitude": 11.695265,
           "longitude": 75.535113,
-          "embedding_change": 0.003461,
+          "embedding_change": 0.00346,
           "vegetation_delta": -0.041704,
           "water_delta": 0.166224,
           "urban_delta": -0.099345,
@@ -88,7 +92,7 @@
         {
           "latitude": 11.693647,
           "longitude": 75.536376,
-          "embedding_change": 0.00162,
+          "embedding_change": 0.001621,
           "vegetation_delta": 0.021459,
           "water_delta": 0.046823,
           "urban_delta": -0.063029,
@@ -116,7 +120,7 @@
         {
           "latitude": 11.72675,
           "longitude": 75.540567,
-          "embedding_change": 0.00135,
+          "embedding_change": 0.001352,
           "vegetation_delta": 0.007904,
           "water_delta": 0.033697,
           "urban_delta": -0.026509,
@@ -170,6 +174,175 @@
           "population_pct_change": 1.077092
         }
       ]
+    }
+  },
+  "historical_imagery": {
+    "available": true,
+    "available_years": [
+      2024,
+      2025
+    ],
+    "years": {
+      "2024": {
+        "year": 2024,
+        "tiles": [
+          {
+            "tile_id": "tile_000",
+            "image": "historical_imagery/2024/tile_000.png",
+            "bounds": [
+              [
+                11.692727,
+                75.528022
+              ],
+              [
+                11.715922,
+                75.551557
+              ]
+            ],
+            "scene_count": 61
+          },
+          {
+            "tile_id": "tile_001",
+            "image": "historical_imagery/2024/tile_001.png",
+            "bounds": [
+              [
+                11.715878,
+                75.528066
+              ],
+              [
+                11.739072,
+                75.551603
+              ]
+            ],
+            "scene_count": 61
+          },
+          {
+            "tile_id": "tile_002",
+            "image": "historical_imagery/2024/tile_002.png",
+            "bounds": [
+              [
+                11.715831,
+                75.551557
+              ],
+              [
+                11.739028,
+                75.575096
+              ]
+            ],
+            "scene_count": 61
+          },
+          {
+            "tile_id": "tile_003",
+            "image": "historical_imagery/2024/tile_003.png",
+            "bounds": [
+              [
+                11.739028,
+                75.52811
+              ],
+              [
+                11.762223,
+                75.551649
+              ]
+            ],
+            "scene_count": 61
+          },
+          {
+            "tile_id": "tile_004",
+            "image": "historical_imagery/2024/tile_004.png",
+            "bounds": [
+              [
+                11.762178,
+                75.528154
+              ],
+              [
+                11.785373,
+                75.551695
+              ]
+            ],
+            "scene_count": 29
+          }
+        ]
+      },
+      "2025": {
+        "year": 2025,
+        "tiles": [
+          {
+            "tile_id": "tile_000",
+            "image": "historical_imagery/2025/tile_000.png",
+            "bounds": [
+              [
+                11.692727,
+                75.528022
+              ],
+              [
+                11.715922,
+                75.551557
+              ]
+            ],
+            "scene_count": 75
+          },
+          {
+            "tile_id": "tile_001",
+            "image": "historical_imagery/2025/tile_001.png",
+            "bounds": [
+              [
+                11.715878,
+                75.528066
+              ],
+              [
+                11.739072,
+                75.551603
+              ]
+            ],
+            "scene_count": 75
+          },
+          {
+            "tile_id": "tile_002",
+            "image": "historical_imagery/2025/tile_002.png",
+            "bounds": [
+              [
+                11.715831,
+                75.551557
+              ],
+              [
+                11.739028,
+                75.575096
+              ]
+            ],
+            "scene_count": 75
+          },
+          {
+            "tile_id": "tile_003",
+            "image": "historical_imagery/2025/tile_003.png",
+            "bounds": [
+              [
+                11.739028,
+                75.52811
+              ],
+              [
+                11.762223,
+                75.551649
+              ]
+            ],
+            "scene_count": 75
+          },
+          {
+            "tile_id": "tile_004",
+            "image": "historical_imagery/2025/tile_004.png",
+            "bounds": [
+              [
+                11.762178,
+                75.528154
+              ],
+              [
+                11.785373,
+                75.551695
+              ]
+            ],
+            "scene_count": 37
+          }
+        ]
+      }
     }
   }
 }

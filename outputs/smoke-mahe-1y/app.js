@@ -59,6 +59,8 @@ const initialBasemapMode = fileProtocol
       : "osm";
 
 const map = L.map("map", { zoomControl: true, preferCanvas: true });
+map.createPane("historicalPane");
+map.getPane("historicalPane").style.zIndex = 250;
 
 const state = {
     summary: null,
@@ -69,6 +71,10 @@ const state = {
     geoLayer: null,
     boundaryLayer: null,
     basemapLayer: null,
+    historicalImagery: null,
+    historicalLayer: null,
+    historicalMode: "off",
+    activeHistoricalYear: null,
     basemapMode: initialBasemapMode,
     boundsByProperty: {
         cells: {},
@@ -385,6 +391,51 @@ function buildSubtitle(summary) {
     );
 }
 
+function currentHistoricalYear() {
+    if (!state.summary) {
+        return null;
+    }
+    const mode = state.historicalMode;
+    if (mode === "base") {
+        return state.summary.config.base_year;
+    }
+    if (mode === "timeline") {
+        return state.summary.config.base_year - Number.parseInt(currentPeriodKey(), 10);
+    }
+    return null;
+}
+
+function currentHistoricalTiles() {
+    const year = currentHistoricalYear();
+    if (year === null || !state.historicalImagery?.years) {
+        return [];
+    }
+    return state.historicalImagery.years[String(year)]?.tiles ?? [];
+}
+
+function updateHistoricalImageryLabel() {
+    const label = document.getElementById("historicalImageryLabel");
+    if (!state.historicalImagery?.available) {
+        label.textContent = "Historical previews appear here after regenerating this output folder with the updated pipeline.";
+        return;
+    }
+    const year = currentHistoricalYear();
+    if (year === null) {
+        label.textContent = "Historical imagery is hidden.";
+        return;
+    }
+    const tiles = currentHistoricalTiles();
+    if (!tiles.length) {
+        label.textContent = `No historical image preview was exported for ${year}.`;
+        return;
+    }
+    const sceneCount = tiles.reduce(
+        (total, tile) => total + Number(tile.scene_count ?? 0),
+        0,
+    );
+    label.textContent = `Showing ${year} annual composite imagery across ${tiles.length} tiles (${sceneCount} source scenes).`;
+}
+
 function handleFeatureMouseOver(event) {
     event.target.setStyle(computeFeatureStyle(event.target.feature, true));
     if (event.target.bringToFront) {
@@ -424,6 +475,44 @@ function applyBasemap(mode) {
             state.summary,
         );
     }
+}
+
+function applyHistoricalImagery(force = false) {
+    const nextYear = currentHistoricalYear();
+    if (
+        !force &&
+        state.activeHistoricalYear === nextYear &&
+        !(
+            nextYear === null &&
+            state.historicalLayer
+        )
+    ) {
+        updateHistoricalImageryLabel();
+        return;
+    }
+
+    if (state.historicalLayer) {
+        map.removeLayer(state.historicalLayer);
+        state.historicalLayer = null;
+    }
+
+    state.activeHistoricalYear = nextYear;
+    const tiles = currentHistoricalTiles();
+    if (nextYear === null || !tiles.length) {
+        updateHistoricalImageryLabel();
+        return;
+    }
+
+    state.historicalLayer = L.layerGroup(
+        tiles.map((tile) =>
+            L.imageOverlay(`${tile.image}`, tile.bounds, {
+                pane: "historicalPane",
+                opacity: 0.95,
+                interactive: false,
+            }),
+        ),
+    ).addTo(map);
+    updateHistoricalImageryLabel();
 }
 
 function renderOverlayLayer() {
@@ -473,6 +562,7 @@ function updateLayer() {
     }
     document.getElementById("periodLabel").textContent = currentPeriodKey();
     state.geoLayer.setStyle((feature) => computeFeatureStyle(feature, false));
+    applyHistoricalImagery();
     updateLegend();
     updateSummaryCards();
 }
@@ -489,6 +579,28 @@ function populateBasemapSelect() {
         )
         .join("");
     basemapSelect.value = state.basemapMode;
+}
+
+function populateHistoricalImagerySelect() {
+    const historicalSelect = document.getElementById("historicalImagery");
+    const options = state.historicalImagery?.available
+        ? [
+              { key: "off", label: "Off" },
+              { key: "timeline", label: "Timeline Match" },
+              { key: "base", label: `Base Year (${state.summary.config.base_year})` },
+          ]
+        : [{ key: "off", label: "Off" }];
+    historicalSelect.innerHTML = options
+        .map(
+            (option) =>
+                `<option value="${option.key}">${option.label}</option>`,
+        )
+        .join("");
+    if (!options.some((option) => option.key === state.historicalMode)) {
+        state.historicalMode = "off";
+    }
+    historicalSelect.value = state.historicalMode;
+    updateHistoricalImageryLabel();
 }
 
 function populateUnitSelect() {
@@ -509,7 +621,7 @@ function populateUnitSelect() {
 }
 
 async function loadData() {
-    const [summary, overlay, boundary, wardOverlay] = await Promise.all([
+    const [summary, overlay, boundary, wardOverlay, historicalImagery] = await Promise.all([
         fetch("summary.json").then((response) => response.json()),
         fetch("overlay.geojson").then((response) => response.json()),
         fetch("boundary.geojson")
@@ -518,11 +630,16 @@ async function loadData() {
         fetch("ward_overlay.geojson")
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
+        fetch("historical_imagery.json")
+            .then((response) => (response.ok ? response.json() : null))
+            .catch(() => null),
     ]);
 
     state.summary = summary;
     state.overlays.cells = overlay;
     state.overlays.wards = wardOverlay?.features?.length ? wardOverlay : null;
+    state.historicalImagery =
+        historicalImagery ?? summary.historical_imagery ?? null;
     state.periods = summary.config.periods.map((value) => `${value}y`);
     state.boundsByProperty.cells = computeBoundsByProperty(overlay.features);
     state.boundsByProperty.wards = state.overlays.wards
@@ -530,6 +647,7 @@ async function loadData() {
         : {};
 
     populateBasemapSelect();
+    populateHistoricalImagerySelect();
     populateUnitSelect();
 
     document.getElementById("title").textContent = summary.metadata.label;
@@ -541,6 +659,7 @@ async function loadData() {
     updateMetricSelect();
     applyBasemap(state.basemapMode);
     renderOverlayLayer();
+    applyHistoricalImagery(true);
 
     if (boundary) {
         state.boundaryLayer = L.geoJSON(boundary, {
@@ -570,6 +689,13 @@ async function loadData() {
 document.getElementById("basemap").addEventListener("change", (event) => {
     applyBasemap(event.target.value);
 });
+
+document
+    .getElementById("historicalImagery")
+    .addEventListener("change", (event) => {
+        state.historicalMode = event.target.value;
+        applyHistoricalImagery(true);
+    });
 
 document.getElementById("unit").addEventListener("change", () => {
     updateMetricSelect();

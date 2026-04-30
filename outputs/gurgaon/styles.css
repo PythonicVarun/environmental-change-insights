@@ -117,6 +117,13 @@ select {
     font-weight: 600;
 }
 
+.helper-label {
+    margin-top: -2px;
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.35;
+}
+
 .legend-card {
     margin-bottom: 16px;
 }
