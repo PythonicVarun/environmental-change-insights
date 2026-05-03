@@ -18,6 +18,10 @@ const metricColorStops = {
     population_delta: ["#3f6791", "#f4efe5", "#bc5a2e"],
 };
 
+const WAYBACK_CONFIG_URL =
+    "https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json";
+const WAYBACK_DATE_REGEX = /Wayback (\d{4}-\d{2}-\d{2})/;
+
 const basemapDefinitions = {
     none: {
         label: "No Basemap",
@@ -61,6 +65,7 @@ const initialBasemapMode = fileProtocol
 const map = L.map("map", { zoomControl: true, preferCanvas: true });
 map.createPane("historicalPane");
 map.getPane("historicalPane").style.zIndex = 250;
+map.getPane("historicalPane").style.pointerEvents = "none";
 
 const state = {
     summary: null,
@@ -71,10 +76,10 @@ const state = {
     geoLayer: null,
     boundaryLayer: null,
     basemapLayer: null,
-    historicalImagery: null,
     historicalLayer: null,
     historicalMode: "off",
-    activeHistoricalYear: null,
+    historicalSnapshots: [],
+    activeHistoricalSnapshotKey: null,
     basemapMode: initialBasemapMode,
     boundsByProperty: {
         cells: {},
@@ -405,35 +410,89 @@ function currentHistoricalYear() {
     return null;
 }
 
-function currentHistoricalTiles() {
-    const year = currentHistoricalYear();
-    if (year === null || !state.historicalImagery?.years) {
-        return [];
+function buildWaybackTileUrl(snapshot) {
+    return snapshot.itemURL
+        .replace("{level}", "{z}")
+        .replace("{row}", "{y}")
+        .replace("{col}", "{x}");
+}
+
+function parseWaybackSnapshots(config) {
+    return Object.entries(config)
+        .map(([releaseNum, info]) => {
+            const match = info?.itemTitle?.match(WAYBACK_DATE_REGEX);
+            if (!match) {
+                return null;
+            }
+
+            const date = new Date(match[1]);
+            if (Number.isNaN(date.getTime())) {
+                return null;
+            }
+
+            return {
+                releaseNum: Number.parseInt(releaseNum, 10),
+                date,
+                tileUrl: buildWaybackTileUrl(info),
+                title: info.itemTitle,
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.date - a.date);
+}
+
+function currentHistoricalSnapshot() {
+    if (!state.historicalSnapshots.length) {
+        return null;
     }
-    return state.historicalImagery.years[String(year)]?.tiles ?? [];
+
+    const year = currentHistoricalYear();
+    if (year === null) {
+        return null;
+    }
+
+    const sameYearSnapshots = state.historicalSnapshots.filter(
+        (snapshot) => snapshot.date.getFullYear() === year,
+    );
+    if (sameYearSnapshots.length) {
+        return sameYearSnapshots[0];
+    }
+
+    const targetDate = new Date(year, 6, 1);
+    return state.historicalSnapshots.reduce((best, snapshot) => {
+        if (!best) {
+            return snapshot;
+        }
+        return Math.abs(snapshot.date - targetDate) < Math.abs(best.date - targetDate)
+            ? snapshot
+            : best;
+    }, null);
 }
 
 function updateHistoricalImageryLabel() {
     const label = document.getElementById("historicalImageryLabel");
-    if (!state.historicalImagery?.available) {
-        label.textContent = "Historical previews appear here after regenerating this output folder with the updated pipeline.";
+    if (!state.historicalSnapshots.length) {
+        label.textContent = "Wayback snapshots are loading from the remote ESRI archive.";
         return;
     }
+
     const year = currentHistoricalYear();
     if (year === null) {
-        label.textContent = "Historical imagery is hidden.";
+        label.textContent = "Wayback historical imagery is hidden.";
         return;
     }
-    const tiles = currentHistoricalTiles();
-    if (!tiles.length) {
-        label.textContent = `No historical image preview was exported for ${year}.`;
+
+    const snapshot = currentHistoricalSnapshot();
+    if (!snapshot) {
+        label.textContent = `No Wayback snapshot was found for ${year}.`;
         return;
     }
-    const sceneCount = tiles.reduce(
-        (total, tile) => total + Number(tile.scene_count ?? 0),
-        0,
-    );
-    label.textContent = `Showing ${year} annual composite imagery across ${tiles.length} tiles (${sceneCount} source scenes).`;
+
+    label.textContent = `Showing Wayback snapshot ${snapshot.date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    })} for ${year}.`;
 }
 
 function handleFeatureMouseOver(event) {
@@ -478,14 +537,14 @@ function applyBasemap(mode) {
 }
 
 function applyHistoricalImagery(force = false) {
-    const nextYear = currentHistoricalYear();
+    const nextSnapshot = currentHistoricalSnapshot();
+    const nextKey = nextSnapshot
+        ? `${nextSnapshot.releaseNum}:${nextSnapshot.date.toISOString()}`
+        : null;
     if (
         !force &&
-        state.activeHistoricalYear === nextYear &&
-        !(
-            nextYear === null &&
-            state.historicalLayer
-        )
+        state.activeHistoricalSnapshotKey === nextKey &&
+        !(nextKey === null && state.historicalLayer)
     ) {
         updateHistoricalImageryLabel();
         return;
@@ -496,22 +555,18 @@ function applyHistoricalImagery(force = false) {
         state.historicalLayer = null;
     }
 
-    state.activeHistoricalYear = nextYear;
-    const tiles = currentHistoricalTiles();
-    if (nextYear === null || !tiles.length) {
+    state.activeHistoricalSnapshotKey = nextKey;
+    if (!nextSnapshot) {
         updateHistoricalImageryLabel();
         return;
     }
 
-    state.historicalLayer = L.layerGroup(
-        tiles.map((tile) =>
-            L.imageOverlay(`${tile.image}`, tile.bounds, {
-                pane: "historicalPane",
-                opacity: 0.95,
-                interactive: false,
-            }),
-        ),
-    ).addTo(map);
+    state.historicalLayer = L.tileLayer(nextSnapshot.tileUrl, {
+        pane: "historicalPane",
+        maxZoom: 19,
+        crossOrigin: true,
+        attribution: "© ESRI Wayback · Imagery © respective owners",
+    }).addTo(map);
     updateHistoricalImageryLabel();
 }
 
@@ -583,7 +638,7 @@ function populateBasemapSelect() {
 
 function populateHistoricalImagerySelect() {
     const historicalSelect = document.getElementById("historicalImagery");
-    const options = state.historicalImagery?.available
+    const options = state.historicalSnapshots.length
         ? [
               { key: "off", label: "Off" },
               { key: "timeline", label: "Timeline Match" },
@@ -621,7 +676,7 @@ function populateUnitSelect() {
 }
 
 async function loadData() {
-    const [summary, overlay, boundary, wardOverlay, historicalImagery] = await Promise.all([
+    const [summary, overlay, boundary, wardOverlay, waybackConfig] = await Promise.all([
         fetch("summary.json").then((response) => response.json()),
         fetch("overlay.geojson").then((response) => response.json()),
         fetch("boundary.geojson")
@@ -630,7 +685,7 @@ async function loadData() {
         fetch("ward_overlay.geojson")
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
-        fetch("historical_imagery.json")
+        fetch(WAYBACK_CONFIG_URL)
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
     ]);
@@ -638,8 +693,7 @@ async function loadData() {
     state.summary = summary;
     state.overlays.cells = overlay;
     state.overlays.wards = wardOverlay?.features?.length ? wardOverlay : null;
-    state.historicalImagery =
-        historicalImagery ?? summary.historical_imagery ?? null;
+    state.historicalSnapshots = waybackConfig ? parseWaybackSnapshots(waybackConfig) : [];
     state.periods = summary.config.periods.map((value) => `${value}y`);
     state.boundsByProperty.cells = computeBoundsByProperty(overlay.features);
     state.boundsByProperty.wards = state.overlays.wards
@@ -711,6 +765,6 @@ loadData().catch((error) => {
     document.getElementById("title").textContent = "Could not load analysis";
     document.getElementById("subtitle").textContent =
         `${error.message}. Serve the output directory with a local web server, such as ` +
-        "`python -m http.server`, instead of opening `ui/index.html` directly from disk.";
+        "`python -m http.server`, instead of opening this page directly from disk.";
     console.error(error);
 });
