@@ -80,7 +80,10 @@ const state = {
     historicalMode: "off",
     historicalSnapshots: [],
     activeHistoricalSnapshotKey: null,
+    playbackTimerId: null,
+    playbackFrameYear: null,
     basemapMode: initialBasemapMode,
+    preferredBasemapMode: initialBasemapMode,
     boundsByProperty: {
         cells: {},
         wards: {},
@@ -327,9 +330,13 @@ function availableMetricOptions() {
 function availableUnitOptions() {
     const options = [{ key: "cells", label: "Cells" }];
     if (state.overlays.wards?.features?.length) {
-        options.unshift({ key: "wards", label: "Wards" });
+        options.push({ key: "wards", label: "Wards" });
     }
     return options;
+}
+
+function isHistoricalImageryActive() {
+    return state.historicalMode !== "off" || state.playbackFrameYear !== null;
 }
 
 function buildTooltip(properties) {
@@ -400,6 +407,9 @@ function currentHistoricalYear() {
     if (!state.summary) {
         return null;
     }
+    if (state.playbackFrameYear !== null) {
+        return state.playbackFrameYear;
+    }
     const mode = state.historicalMode;
     if (mode === "base") {
         return state.summary.config.base_year;
@@ -408,6 +418,31 @@ function currentHistoricalYear() {
         return state.summary.config.base_year - Number.parseInt(currentPeriodKey(), 10);
     }
     return null;
+}
+
+function timelineMatchYear() {
+    if (!state.summary) {
+        return null;
+    }
+    return state.summary.config.base_year - Number.parseInt(currentPeriodKey(), 10);
+}
+
+function playbackYears() {
+    const startYear = timelineMatchYear();
+    const endYear = state.summary?.config?.base_year;
+    if (
+        startYear === null ||
+        endYear === undefined ||
+        Number.isNaN(startYear) ||
+        startYear > endYear
+    ) {
+        return [];
+    }
+
+    return Array.from(
+        { length: endYear - startYear + 1 },
+        (_, index) => startYear + index,
+    );
 }
 
 function buildWaybackTileUrl(snapshot) {
@@ -488,11 +523,89 @@ function updateHistoricalImageryLabel() {
         return;
     }
 
-    label.textContent = `Showing Wayback snapshot ${snapshot.date.toLocaleDateString("en-US", {
+    const snapshotLabel = snapshot.date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
-    })} for ${year}.`;
+    });
+    if (state.playbackFrameYear !== null) {
+        label.textContent =
+            `Playback year ${year}. Showing Wayback snapshot ${snapshotLabel}.`;
+        return;
+    }
+
+    label.textContent = `Showing Wayback snapshot ${snapshotLabel} for ${year}.`;
+}
+
+function updateHistoricalPlaybackButton() {
+    const button = document.getElementById("historicalPlayback");
+    const years = playbackYears();
+    const canPlay =
+        !fileProtocol && state.historicalSnapshots.length && years.length > 1;
+    button.disabled = !canPlay;
+    button.classList.toggle("is-playing", state.playbackTimerId !== null);
+
+    if (state.playbackTimerId !== null) {
+        button.textContent = "Stop Playback";
+        return;
+    }
+
+    if (!canPlay) {
+        button.textContent = "Play to Base Year";
+        return;
+    }
+
+    button.textContent = `Play ${years[0]} to ${years[years.length - 1]}`;
+}
+
+function stopHistoricalPlayback({ refresh = true } = {}) {
+    if (state.playbackTimerId !== null) {
+        window.clearTimeout(state.playbackTimerId);
+        state.playbackTimerId = null;
+    }
+    state.playbackFrameYear = null;
+    if (isHistoricalImageryActive()) {
+        updateBasemapControlState();
+    } else {
+        applyBasemap(state.preferredBasemapMode);
+    }
+    updateHistoricalPlaybackButton();
+    if (refresh) {
+        applyHistoricalImagery(true);
+    }
+}
+
+function queuePlaybackFrame(years, index) {
+    if (index >= years.length) {
+        stopHistoricalPlayback({ refresh: false });
+        state.historicalMode = "base";
+        document.getElementById("historicalImagery").value = "base";
+        applyBasemap("esri_imagery");
+        applyHistoricalImagery(true);
+        return;
+    }
+
+    state.playbackFrameYear = years[index];
+    applyBasemap("esri_imagery");
+    applyHistoricalImagery(true);
+    state.playbackTimerId = window.setTimeout(() => {
+        state.playbackTimerId = null;
+        queuePlaybackFrame(years, index + 1);
+        updateHistoricalPlaybackButton();
+    }, 1400);
+    updateHistoricalPlaybackButton();
+}
+
+function startHistoricalPlayback() {
+    const years = playbackYears();
+    if (!years.length || state.historicalSnapshots.length === 0 || fileProtocol) {
+        updateHistoricalPlaybackButton();
+        return;
+    }
+
+    stopHistoricalPlayback({ refresh: false });
+    applyBasemap("esri_imagery");
+    queuePlaybackFrame(years, 0);
 }
 
 function handleFeatureMouseOver(event) {
@@ -510,7 +623,8 @@ function handleFeatureMouseOut(event) {
 
 function applyBasemap(mode) {
     const normalizedMode = basemapDefinitions[mode] ? mode : "none";
-    state.basemapMode = fileProtocol ? "none" : normalizedMode;
+    const resolvedMode = isHistoricalImageryActive() ? "esri_imagery" : normalizedMode;
+    state.basemapMode = fileProtocol ? "none" : resolvedMode;
 
     if (state.basemapLayer) {
         map.removeLayer(state.basemapLayer);
@@ -534,6 +648,22 @@ function applyBasemap(mode) {
             state.summary,
         );
     }
+
+    updateBasemapControlState();
+}
+
+function updateBasemapControlState() {
+    const basemapSelect = document.getElementById("basemap");
+    if (!basemapSelect) {
+        return;
+    }
+
+    const historicalActive = isHistoricalImageryActive();
+    basemapSelect.disabled = historicalActive;
+    basemapSelect.value =
+        historicalActive && !fileProtocol
+            ? "esri_imagery"
+            : state.basemapMode;
 }
 
 function applyHistoricalImagery(force = false) {
@@ -617,6 +747,7 @@ function updateLayer() {
     }
     document.getElementById("periodLabel").textContent = currentPeriodKey();
     state.geoLayer.setStyle((feature) => computeFeatureStyle(feature, false));
+    updateHistoricalPlaybackButton();
     applyHistoricalImagery();
     updateLegend();
     updateSummaryCards();
@@ -633,7 +764,7 @@ function populateBasemapSelect() {
                 `<option value="${mode}">${basemapDefinitions[mode].label}</option>`,
         )
         .join("");
-    basemapSelect.value = state.basemapMode;
+    updateBasemapControlState();
 }
 
 function populateHistoricalImagerySelect() {
@@ -655,6 +786,7 @@ function populateHistoricalImagerySelect() {
         state.historicalMode = "off";
     }
     historicalSelect.value = state.historicalMode;
+    updateHistoricalPlaybackButton();
     updateHistoricalImageryLabel();
 }
 
@@ -668,7 +800,9 @@ function populateUnitSelect() {
                 `<option value="${option.key}">${option.label}</option>`,
         )
         .join("");
-    if (options.some((option) => option.key === previousValue)) {
+    if (!previousValue && options.some((option) => option.key === "cells")) {
+        unitSelect.value = "cells";
+    } else if (options.some((option) => option.key === previousValue)) {
         unitSelect.value = previousValue;
     } else if (options.length) {
         unitSelect.value = options[0].key;
@@ -741,14 +875,32 @@ async function loadData() {
 }
 
 document.getElementById("basemap").addEventListener("change", (event) => {
+    state.preferredBasemapMode = event.target.value;
     applyBasemap(event.target.value);
 });
 
 document
     .getElementById("historicalImagery")
     .addEventListener("change", (event) => {
+        stopHistoricalPlayback({ refresh: false });
         state.historicalMode = event.target.value;
+        applyBasemap(
+            state.historicalMode === "off"
+                ? state.preferredBasemapMode
+                : "esri_imagery",
+        );
         applyHistoricalImagery(true);
+        updateHistoricalPlaybackButton();
+    });
+
+document
+    .getElementById("historicalPlayback")
+    .addEventListener("click", () => {
+        if (state.playbackTimerId !== null) {
+            stopHistoricalPlayback();
+            return;
+        }
+        startHistoricalPlayback();
     });
 
 document.getElementById("unit").addEventListener("change", () => {
@@ -758,7 +910,10 @@ document.getElementById("unit").addEventListener("change", () => {
 });
 
 document.getElementById("metric").addEventListener("change", updateLayer);
-document.getElementById("period").addEventListener("input", updateLayer);
+document.getElementById("period").addEventListener("input", () => {
+    stopHistoricalPlayback({ refresh: false });
+    updateLayer();
+});
 document.getElementById("opacity").addEventListener("input", updateLayer);
 
 loadData().catch((error) => {

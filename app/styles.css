@@ -112,6 +112,40 @@ select {
     background: white;
 }
 
+.ghost-button {
+    width: 100%;
+    border: 1px solid rgba(141, 47, 32, 0.2);
+    border-radius: 12px;
+    padding: 11px 12px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent-deep);
+    background: rgba(207, 92, 54, 0.08);
+    cursor: pointer;
+    transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        transform 160ms ease;
+}
+
+.ghost-button:hover:not(:disabled) {
+    background: rgba(207, 92, 54, 0.14);
+    border-color: rgba(141, 47, 32, 0.32);
+    transform: translateY(-1px);
+}
+
+.ghost-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ghost-button.is-playing {
+    color: white;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    border-color: transparent;
+}
+
 .period-label {
     font-size: 0.94rem;
     font-weight: 600;
