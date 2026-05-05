@@ -18,6 +18,51 @@ const metricColorStops = {
     population_delta: ["#3f6791", "#f4efe5", "#bc5a2e"],
 };
 
+const metricSummaryDefinitions = {
+    embedding_change: {
+        summaryKey: "embedding_change_median",
+        label: "Median change",
+        unit: "median score",
+        formatter: (value) => formatNumber(value),
+    },
+    vegetation_delta: {
+        summaryKey: "vegetation_delta_mean",
+        label: "Mean vegetation delta",
+        unit: "mean delta",
+        formatter: (value) => formatNumber(value),
+    },
+    water_delta: {
+        summaryKey: "water_delta_mean",
+        label: "Mean water delta",
+        unit: "mean delta",
+        formatter: (value) => formatNumber(value),
+    },
+    urban_delta: {
+        summaryKey: "urban_delta_mean",
+        label: "Mean urban delta",
+        unit: "mean delta",
+        formatter: (value) => formatNumber(value),
+    },
+    bare_soil_delta: {
+        summaryKey: "bare_soil_delta_mean",
+        label: "Mean bare-soil delta",
+        unit: "mean delta",
+        formatter: (value) => formatNumber(value),
+    },
+    pollution_delta: {
+        summaryKey: "pollution_delta_mean",
+        label: "Mean pollution proxy",
+        unit: "mean delta",
+        formatter: (value) => formatNumber(value),
+    },
+    population_delta: {
+        summaryKey: "population_delta_total",
+        label: "Population delta",
+        unit: "people",
+        formatter: (value) => formatPopulation(value),
+    },
+};
+
 const WAYBACK_CONFIG_URL =
     "https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json";
 const WAYBACK_DATE_REGEX = /Wayback (\d{4}-\d{2}-\d{2})/;
@@ -62,6 +107,34 @@ const initialBasemapMode = fileProtocol
       ? requestedBasemapMode
       : "osm";
 
+function inferLocationSlug(pathname = window.location.pathname) {
+    const segments = pathname.split("/").filter(Boolean);
+    if (!segments.length) {
+        return "";
+    }
+
+    const outputsIndex = segments.lastIndexOf("outputs");
+    const lastSegment = segments[segments.length - 1];
+    if (outputsIndex >= 0 && outputsIndex + 1 < segments.length) {
+        return decodeURIComponent(segments[outputsIndex + 1]);
+    }
+    if (/\.html?$/i.test(lastSegment) && segments.length > 1) {
+        return decodeURIComponent(segments[segments.length - 2]);
+    }
+    return decodeURIComponent(lastSegment);
+}
+
+function humanizeLocationSlug(slug) {
+    return slug
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+const fallbackLocationLabel =
+    humanizeLocationSlug(inferLocationSlug()) || "Location";
+
 const map = L.map("map", { zoomControl: true, preferCanvas: true });
 map.createPane("historicalPane");
 map.getPane("historicalPane").style.zIndex = 250;
@@ -82,6 +155,8 @@ const state = {
     activeHistoricalSnapshotKey: null,
     playbackTimerId: null,
     playbackFrameYear: null,
+    selectedHistoricalSnapshotIndex: null,
+    playbackSpeedMs: 1200,
     basemapMode: initialBasemapMode,
     preferredBasemapMode: initialBasemapMode,
     boundsByProperty: {
@@ -90,6 +165,30 @@ const state = {
     },
     periods: [],
 };
+
+function currentAreaLabel() {
+    return state.summary?.metadata?.label || fallbackLocationLabel;
+}
+
+function updateLocationChrome() {
+    const areaLabel = currentAreaLabel();
+    document.title = `OlmoEarth Change Overlay · ${areaLabel}`;
+    document.getElementById("loadingTitle").textContent = `Preparing ${areaLabel} Monitor`;
+    if (!state.summary) {
+        document.getElementById("title").textContent = `Loading ${areaLabel} analysis...`;
+        document.getElementById("subtitle").textContent =
+            `Reading summary and overlay layers for ${areaLabel}.`;
+        document.getElementById("frameBadgeSubtitle").textContent =
+            `${areaLabel} change analysis`;
+    }
+}
+
+function setLoadingState(isLoading, message) {
+    if (message) {
+        document.getElementById("loadingMessage").textContent = message;
+    }
+    document.body.classList.toggle("is-loading", isLoading);
+}
 
 function interpolateColor(colors, t) {
     const clamp = Math.max(0, Math.min(1, t));
@@ -141,6 +240,9 @@ function formatPercent(value, digits = 1) {
 
 function currentPeriodKey() {
     const slider = document.getElementById("period");
+    if (!slider) {
+        return state.periods[0];
+    }
     return state.periods[Number(slider.value)] ?? state.periods[0];
 }
 
@@ -327,6 +429,22 @@ function availableMetricOptions() {
     );
 }
 
+function currentMetricOption() {
+    return (
+        metricOptions.find((metric) => metric.key === currentMetricKey()) ??
+        metricOptions[0]
+    );
+}
+
+function summaryMetricValue(periodKey = currentPeriodKey(), metricKey = currentMetricKey()) {
+    const config = metricSummaryDefinitions[metricKey];
+    if (!config) {
+        return null;
+    }
+
+    return state.summary?.periods?.[periodKey]?.metrics?.[config.summaryKey] ?? null;
+}
+
 function availableUnitOptions() {
     const options = [{ key: "cells", label: "Cells" }];
     if (state.overlays.wards?.features?.length) {
@@ -336,7 +454,11 @@ function availableUnitOptions() {
 }
 
 function isHistoricalImageryActive() {
-    return state.historicalMode !== "off" || state.playbackFrameYear !== null;
+    return (
+        state.historicalMode !== "off" ||
+        state.playbackFrameYear !== null ||
+        state.selectedHistoricalSnapshotIndex !== null
+    );
 }
 
 function buildTooltip(properties) {
@@ -407,6 +529,10 @@ function currentHistoricalYear() {
     if (!state.summary) {
         return null;
     }
+    const selectedSnapshot = selectedHistoricalSnapshot();
+    if (selectedSnapshot) {
+        return selectedSnapshot.date.getFullYear();
+    }
     if (state.playbackFrameYear !== null) {
         return state.playbackFrameYear;
     }
@@ -427,7 +553,41 @@ function timelineMatchYear() {
     return state.summary.config.base_year - Number.parseInt(currentPeriodKey(), 10);
 }
 
-function playbackYears() {
+function snapshotForYear(year) {
+    if (year === null || year === undefined || !state.historicalSnapshots.length) {
+        return null;
+    }
+
+    const sameYearSnapshots = state.historicalSnapshots.filter(
+        (snapshot) => snapshot.date.getFullYear() === year,
+    );
+    if (sameYearSnapshots.length) {
+        return sameYearSnapshots[0];
+    }
+
+    const targetDate = new Date(year, 6, 1);
+    return state.historicalSnapshots.reduce((best, snapshot) => {
+        if (!best) {
+            return snapshot;
+        }
+        return Math.abs(snapshot.date - targetDate) < Math.abs(best.date - targetDate)
+            ? snapshot
+            : best;
+    }, null);
+}
+
+function formatSnapshotDate(snapshot) {
+    if (!snapshot) {
+        return null;
+    }
+    return snapshot.date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+}
+
+function historicalPlaybackSnapshots() {
     const startYear = timelineMatchYear();
     const endYear = state.summary?.config?.base_year;
     if (
@@ -439,10 +599,231 @@ function playbackYears() {
         return [];
     }
 
-    return Array.from(
-        { length: endYear - startYear + 1 },
-        (_, index) => startYear + index,
-    );
+    return state.historicalSnapshots
+        .filter((snapshot) => {
+            const year = snapshot.date.getFullYear();
+            return year >= startYear && year <= endYear;
+        })
+        .slice()
+        .sort((a, b) => a.date - b.date);
+}
+
+function selectedHistoricalSnapshot() {
+    const snapshots = historicalPlaybackSnapshots();
+    if (
+        state.selectedHistoricalSnapshotIndex === null ||
+        !snapshots[state.selectedHistoricalSnapshotIndex]
+    ) {
+        return null;
+    }
+    return snapshots[state.selectedHistoricalSnapshotIndex];
+}
+
+function currentHistoricalPlayerIndex() {
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length) {
+        return 0;
+    }
+    if (
+        state.selectedHistoricalSnapshotIndex !== null &&
+        snapshots[state.selectedHistoricalSnapshotIndex]
+    ) {
+        return state.selectedHistoricalSnapshotIndex;
+    }
+
+    if (state.historicalMode === "timeline") {
+        return 0;
+    }
+    if (state.historicalMode === "base") {
+        return snapshots.length - 1;
+    }
+    return snapshots.length - 1;
+}
+
+function syncHistoricalPlayerRange(updateValue = true) {
+    const snapshots = historicalPlaybackSnapshots();
+    const frameInput = document.getElementById("historicalFrame");
+    if (!frameInput) {
+        return;
+    }
+
+    const ticksContainer = document.getElementById("playerTicks");
+    const minLabel = document.getElementById("playerMinYear");
+    const maxLabel = document.getElementById("playerMaxYear");
+    const tooltip = document.getElementById("playerTooltip");
+
+    if (snapshots.length > 1) {
+        const minTime = snapshots[0].date.getTime();
+        const maxTime = snapshots[snapshots.length - 1].date.getTime();
+
+        frameInput.min = minTime;
+        frameInput.max = maxTime;
+
+        const currentIndex = currentHistoricalPlayerIndex();
+        const currentSnapshot = snapshots[currentIndex] || snapshots[snapshots.length - 1];
+
+        if (updateValue) {
+            const newValue = String(currentSnapshot.date.getTime());
+            if (frameInput.value !== newValue) {
+                frameInput.value = newValue;
+            }
+        }
+
+        minLabel.textContent = snapshots[0].date.getFullYear();
+        maxLabel.textContent = snapshots[snapshots.length - 1].date.getFullYear();
+
+        if (ticksContainer.children.length !== snapshots.length || frameInput.dataset.mapped !== "true") {
+            ticksContainer.innerHTML = '';
+            snapshots.forEach((snap, index) => {
+                const tick = document.createElement("div");
+                tick.className = "player-tick";
+                tick.dataset.index = String(index);
+                const ratio = maxTime > minTime ? (snap.date.getTime() - minTime) / (maxTime - minTime) : 0;
+                tick.style.left = `${ratio * 100}%`;
+
+                try {
+                    tick.dataset.date = snap.date.toISOString().split('T')[0];
+                } catch (e) {
+                    tick.dataset.date = '';
+                }
+
+                tick.addEventListener("click", () => {
+                    stopHistoricalPlayback({ refresh: false });
+                    setHistoricalFrame(index, {
+                        activate: true,
+                        refresh: true,
+                        updateSliderValue: true
+                    });
+                });
+
+                tick.addEventListener('mouseenter', (evt) => {
+                    const dateText = tick.dataset.date || '';
+                    if (dateText) {
+                        tooltip.textContent = dateText;
+                        const left = `calc(${ratio * 100}% + 8px)`;
+                        tooltip.style.left = left;
+                        tooltip.style.opacity = '1';
+                    }
+                });
+                tick.addEventListener('mouseleave', () => {
+                    try {
+                        const curIndex = currentHistoricalPlayerIndex();
+                        const curSnapshot = snapshots[curIndex] || snapshots[snapshots.length - 1];
+                        if (curSnapshot) {
+                            tooltip.textContent = curSnapshot.date.toISOString().split('T')[0];
+                            const curRatio = maxTime > minTime ? (curSnapshot.date.getTime() - minTime) / (maxTime - minTime) : 0;
+                            tooltip.style.left = `calc(${curRatio * 100}% + 8px)`;
+                            tooltip.style.opacity = '1';
+                            return;
+                        }
+                        tooltip.style.opacity = '0';
+                    } catch (e) {
+                        tooltip.style.opacity = '0';
+                    }
+                });
+
+                ticksContainer.appendChild(tick);
+            });
+            frameInput.dataset.mapped = "true";
+        }
+
+        const ratio = maxTime > minTime ? (currentSnapshot.date.getTime() - minTime) / (maxTime - minTime) : 0;
+        tooltip.textContent = currentSnapshot.date.toISOString().split('T')[0];
+        tooltip.style.left = `calc(${ratio * 100}% + 8px)`;
+        tooltip.style.opacity = "1";
+
+        try {
+            const currentIndex = currentHistoricalPlayerIndex();
+            Array.from(ticksContainer.children).forEach((child) => {
+                const idx = Number(child.dataset.index);
+                if (!Number.isNaN(idx) && idx === currentIndex) {
+                    child.classList.add('is-active');
+                } else {
+                    child.classList.remove('is-active');
+                }
+            });
+        } catch (e) {
+            // ignore if ticksContainer not present or dataset values unexpected
+        }
+    } else {
+        frameInput.min = 0;
+        frameInput.max = 0;
+        frameInput.value = 0;
+        ticksContainer.innerHTML = '';
+        minLabel.textContent = '';
+        maxLabel.textContent = '';
+        tooltip.style.opacity = "0";
+        frameInput.dataset.mapped = "false";
+    }
+}
+
+function setHistoricalFrame(index, { activate = true, refresh = true, updateSliderValue = true } = {}) {
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length) {
+        return;
+    }
+
+    const clampedIndex = Math.max(0, Math.min(index, snapshots.length - 1));
+    const selectedSnapshot = snapshots[clampedIndex];
+    state.selectedHistoricalSnapshotIndex = clampedIndex;
+    state.playbackFrameYear = selectedSnapshot.date.getFullYear();
+
+    if (activate) {
+        if (state.historicalMode === "off") {
+            state.historicalMode = "timeline";
+            document.getElementById("historicalImagery").value = "timeline";
+        }
+        applyBasemap("esri_imagery");
+    } else {
+        updateBasemapControlState();
+    }
+
+    syncHistoricalPlayerRange(updateSliderValue);
+    if (refresh) {
+        applyHistoricalImagery(true);
+    }
+}
+
+function closestHistoricalSnapshotIndex(targetTime) {
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length) {
+        return null;
+    }
+
+    let closestIndex = 0;
+    let minDiff = Infinity;
+    snapshots.forEach((snap, idx) => {
+        const diff = Math.abs(snap.date.getTime() - targetTime);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closestIndex = idx;
+        }
+    });
+
+    return closestIndex;
+}
+
+function historicalFrameTargetTimeFromPointer(frameInput, clientX) {
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length) {
+        return null;
+    }
+
+    const minTime = snapshots[0].date.getTime();
+    const maxTime = snapshots[snapshots.length - 1].date.getTime();
+    const rect = frameInput.getBoundingClientRect();
+    if (rect.width <= 0) {
+        return minTime;
+    }
+
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return minTime + ratio * (maxTime - minTime);
+}
+
+function resetHistoricalFrameSelection() {
+    state.selectedHistoricalSnapshotIndex = null;
+    state.playbackFrameYear = null;
+    syncHistoricalPlayerRange();
 }
 
 function buildWaybackTileUrl(snapshot) {
@@ -481,27 +862,16 @@ function currentHistoricalSnapshot() {
         return null;
     }
 
+    const chosenSnapshot = selectedHistoricalSnapshot();
+    if (chosenSnapshot) {
+        return chosenSnapshot;
+    }
+
     const year = currentHistoricalYear();
     if (year === null) {
         return null;
     }
-
-    const sameYearSnapshots = state.historicalSnapshots.filter(
-        (snapshot) => snapshot.date.getFullYear() === year,
-    );
-    if (sameYearSnapshots.length) {
-        return sameYearSnapshots[0];
-    }
-
-    const targetDate = new Date(year, 6, 1);
-    return state.historicalSnapshots.reduce((best, snapshot) => {
-        if (!best) {
-            return snapshot;
-        }
-        return Math.abs(snapshot.date - targetDate) < Math.abs(best.date - targetDate)
-            ? snapshot
-            : best;
-    }, null);
+    return snapshotForYear(year);
 }
 
 function updateHistoricalImageryLabel() {
@@ -523,12 +893,8 @@ function updateHistoricalImageryLabel() {
         return;
     }
 
-    const snapshotLabel = snapshot.date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
-    if (state.playbackFrameYear !== null) {
+    const snapshotLabel = formatSnapshotDate(snapshot);
+    if (state.playbackTimerId !== null) {
         label.textContent =
             `Playback year ${year}. Showing Wayback snapshot ${snapshotLabel}.`;
         return;
@@ -538,32 +904,257 @@ function updateHistoricalImageryLabel() {
 }
 
 function updateHistoricalPlaybackButton() {
-    const button = document.getElementById("historicalPlayback");
-    const years = playbackYears();
-    const canPlay =
-        !fileProtocol && state.historicalSnapshots.length && years.length > 1;
-    button.disabled = !canPlay;
-    button.classList.toggle("is-playing", state.playbackTimerId !== null);
+    const playButton = document.getElementById("historicalPlayback");
+    const backButton = document.getElementById("historicalStepBack");
+    const forwardButton = document.getElementById("historicalStepForward");
+    const speedSelect = document.getElementById("historicalSpeed");
+    const frameInput = document.getElementById("historicalFrame");
+    const frameLabel = document.getElementById("historicalFrameLabel");
+    const snapshots = historicalPlaybackSnapshots();
+    const canPlay = !fileProtocol && snapshots.length > 1;
+    const playerIndex = currentHistoricalPlayerIndex();
+    const currentSnapshot = snapshots[playerIndex] ?? currentHistoricalSnapshot();
+    const currentLabel = formatSnapshotDate(currentSnapshot) ?? "Historical imagery off";
 
-    if (state.playbackTimerId !== null) {
-        button.textContent = "Stop Playback";
-        return;
-    }
+    playButton.disabled = !canPlay;
+    playButton.classList.toggle("is-playing", state.playbackTimerId !== null);
+    backButton.disabled = !snapshots.length || playerIndex <= 0;
+    forwardButton.disabled =
+        !snapshots.length || playerIndex >= snapshots.length - 1;
+    frameInput.disabled = !snapshots.length || fileProtocol;
+    speedSelect.disabled = !canPlay;
+    speedSelect.value = String(state.playbackSpeedMs);
 
     if (!canPlay) {
-        button.textContent = "Play to Base Year";
+        playButton.textContent = "\u25b6";
+        frameLabel.textContent = fileProtocol
+            ? "Serve over http(s) to use Wayback playback"
+            : currentLabel;
+        syncHistoricalPlayerRange();
         return;
     }
 
-    button.textContent = `Play ${years[0]} to ${years[years.length - 1]}`;
+    playButton.textContent = state.playbackTimerId !== null ? "\u275a\u275a" : "\u25b6";
+    frameLabel.textContent =
+        state.historicalMode === "off" && state.playbackFrameYear === null
+            ? "Historical imagery off"
+            : `${currentLabel}${playerIndex === snapshots.length - 1 ? " (Base Year)" : ""}`;
+    syncHistoricalPlayerRange();
 }
 
-function stopHistoricalPlayback({ refresh = true } = {}) {
+function updateFocusPanel() {
+    if (!state.summary) {
+        return;
+    }
+
+    const config = metricSummaryDefinitions[currentMetricKey()];
+    const value = summaryMetricValue();
+    document.getElementById("focusValue").textContent =
+        value === null ? "--" : config.formatter(value);
+    document.getElementById("focusUnit").textContent = config?.unit ?? "summary";
+    document.getElementById("focusCaption").textContent =
+        `${config?.label ?? "Selected metric"} for the ${currentPeriodKey()} lookback window.`;
+}
+
+function updateTrendChart() {
+    const container = document.getElementById("trendChart");
+    if (!state.summary) {
+        container.innerHTML = "";
+        return;
+    }
+
+    const config = metricSummaryDefinitions[currentMetricKey()];
+    const series = state.periods.map((period) => ({
+        period,
+        value: summaryMetricValue(period),
+    }));
+    const values = series
+        .map((entry) => entry.value)
+        .filter((value) => value !== null && !Number.isNaN(value));
+
+    if (!values.length) {
+        container.innerHTML = `<div class="helper-label">Trend unavailable for ${config.label.toLowerCase()}.</div>`;
+        return;
+    }
+
+    const width = 300;
+    const height = 96;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const xStep = series.length > 1 ? width / (series.length - 1) : 0;
+    const yFor = (value) => {
+        if (max === min) {
+            return height / 2;
+        }
+        return height - ((value - min) / (max - min)) * (height - 10) - 5;
+    };
+
+    const polyline = series
+        .map((entry, index) => `${index * xStep},${yFor(entry.value ?? min)}`)
+        .join(" ");
+    const area = `0,${height} ${polyline} ${width},${height}`;
+    const points = series
+        .map((entry, index) => {
+            const x = index * xStep;
+            const y = yFor(entry.value ?? min);
+            const isActive = entry.period === currentPeriodKey();
+            return `<circle cx="${x}" cy="${y}" r="${isActive ? 4.5 : 3}" fill="${isActive ? "#00f0c8" : "#13d4ff"}" />`;
+        })
+        .join("");
+    const labels = series
+        .map((entry, index) => {
+            const x = index * xStep;
+            return `<text x="${x}" y="${height + 16}" text-anchor="${index === 0 ? "start" : index === series.length - 1 ? "end" : "middle"}" fill="#70829f" font-size="10">${entry.period}</text>`;
+        })
+        .join("");
+
+    container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height + 20}" preserveAspectRatio="none" role="img" aria-label="${config.label} trend">
+            <path d="M 0 ${height / 2} H ${width}" stroke="rgba(129, 147, 176, 0.16)" stroke-width="1" />
+            <polygon points="${area}" fill="rgba(19, 212, 255, 0.12)" />
+            <polyline points="${polyline}" fill="none" stroke="#13d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            ${points}
+            ${labels}
+        </svg>
+    `;
+}
+
+function updateFrameDetails() {
+    if (!state.summary) {
+        return;
+    }
+
+    const snapshot = currentHistoricalSnapshot();
+    const frameYear = currentHistoricalYear();
+    const baseSnapshot = snapshotForYear(state.summary.config.base_year);
+    const frameLabel =
+        state.historicalMode === "off"
+            ? "Off"
+            : snapshot
+              ? `${frameYear} · ${formatSnapshotDate(snapshot)}`
+              : `${frameYear ?? "--"}`;
+
+    document.getElementById("baseYearLabel").textContent =
+        baseSnapshot
+            ? `${formatSnapshotDate(baseSnapshot)} (Base Year)`
+            : String(state.summary.config.base_year);
+    document.getElementById("timelineYearLabel").textContent =
+        String(timelineMatchYear() ?? "--");
+    document.getElementById("activeFrameLabel").textContent = frameLabel;
+    document.getElementById("coverageLabel").textContent = formatPercent(
+        state.summary.metadata.coverage_percent,
+        1,
+    );
+}
+
+function updateFrameBadge() {
+    if (!state.summary) {
+        return;
+    }
+
+    const snapshot = currentHistoricalSnapshot();
+    const metricLabel = currentMetricOption()?.label ?? "Change";
+    const areaLabel = currentAreaLabel();
+    const baseSnapshot = snapshotForYear(state.summary.config.base_year);
+    const baseDateLabel = baseSnapshot
+        ? `${formatSnapshotDate(baseSnapshot)} (Base Year)`
+        : `${state.summary.config.base_year} (Base Year)`;
+    let title = baseDateLabel;
+    let subtitle = `${areaLabel} · ${metricLabel}`;
+
+    if (state.historicalMode !== "off" || state.selectedHistoricalSnapshotIndex !== null) {
+        title = snapshot
+            ? formatSnapshotDate(snapshot)
+            : `Wayback ${currentHistoricalYear() ?? ""}`.trim();
+        subtitle =
+            state.playbackTimerId !== null
+                ? `${areaLabel} · Playback to base year`
+                : `${areaLabel} · Wayback historical imagery`;
+    } else if (snapshot) {
+        title = `${formatSnapshotDate(snapshot)} (Base Year)`;
+    }
+
+    document.getElementById("frameBadgeTitle").textContent = title;
+    document.getElementById("frameBadgeSubtitle").textContent = subtitle;
+}
+
+function updateTimelineTicks() {
+    const container = document.getElementById("timelineTicks");
+    if (!container) {
+        return;
+    }
+    const activePeriod = currentPeriodKey();
+    container.innerHTML = state.periods
+        .map(
+            (period) =>
+                `<span class="timeline-tick ${period === activePeriod ? "is-active" : ""}">${period}</span>`,
+        )
+        .join("");
+}
+
+function updateOpacityValue() {
+    const opacity = Number(document.getElementById("opacity").value);
+    document.getElementById("opacityValue").textContent =
+        `${Math.round(opacity * 100)}%`;
+}
+
+function updateTopbarMeta() {
+    if (!state.summary) {
+        return;
+    }
+
+    document.getElementById("statusText").textContent = state.historicalSnapshots.length
+        ? "Ready"
+        : "Ready · Wayback limited";
+    document.getElementById("promptText").textContent =
+        `${currentMetricOption()?.label ?? "Change"} · ${currentPeriodKey()} lookback`;
+}
+
+function updateDashboardChrome() {
+    if (!state.summary) {
+        return;
+    }
+
+    updateLocationChrome();
+    populateHistoricalImagerySelect();
+    updateTopbarMeta();
+    updateFocusPanel();
+    updateTrendChart();
+    updateFrameDetails();
+    updateFrameBadge();
+    updateTimelineTicks();
+    updateOpacityValue();
+}
+
+function updateMapTelemetry() {
+    const center = map.getCenter();
+    document.getElementById("telemetryLat").textContent = center.lat.toFixed(4);
+    document.getElementById("telemetryLng").textContent = center.lng.toFixed(4);
+    document.getElementById("telemetryZoom").textContent = map.getZoom().toFixed(1);
+}
+
+function stepHistoricalFrame(direction) {
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length) {
+        return;
+    }
+
+    stopHistoricalPlayback({ refresh: false });
+    const nextIndex = Math.max(
+        0,
+        Math.min(currentHistoricalPlayerIndex() + direction, snapshots.length - 1),
+    );
+    setHistoricalFrame(nextIndex, { activate: true, refresh: true });
+}
+
+function stopHistoricalPlayback({ refresh = true, resetSelection = false } = {}) {
     if (state.playbackTimerId !== null) {
         window.clearTimeout(state.playbackTimerId);
         state.playbackTimerId = null;
     }
-    state.playbackFrameYear = null;
+    if (resetSelection) {
+        resetHistoricalFrameSelection();
+    }
     if (isHistoricalImageryActive()) {
         updateBasemapControlState();
     } else {
@@ -575,37 +1166,43 @@ function stopHistoricalPlayback({ refresh = true } = {}) {
     }
 }
 
-function queuePlaybackFrame(years, index) {
-    if (index >= years.length) {
-        stopHistoricalPlayback({ refresh: false });
+function queuePlaybackFrame(index) {
+    const snapshots = historicalPlaybackSnapshots();
+    if (index >= snapshots.length) {
+        state.playbackTimerId = null;
         state.historicalMode = "base";
         document.getElementById("historicalImagery").value = "base";
-        applyBasemap("esri_imagery");
-        applyHistoricalImagery(true);
+        setHistoricalFrame(snapshots.length - 1, { activate: true, refresh: true });
+        updateHistoricalPlaybackButton();
         return;
     }
 
-    state.playbackFrameYear = years[index];
-    applyBasemap("esri_imagery");
-    applyHistoricalImagery(true);
+    setHistoricalFrame(index, { activate: true, refresh: true });
     state.playbackTimerId = window.setTimeout(() => {
-        state.playbackTimerId = null;
-        queuePlaybackFrame(years, index + 1);
+        queuePlaybackFrame(index + 1);
         updateHistoricalPlaybackButton();
-    }, 1400);
+    }, state.playbackSpeedMs);
     updateHistoricalPlaybackButton();
 }
 
 function startHistoricalPlayback() {
-    const years = playbackYears();
-    if (!years.length || state.historicalSnapshots.length === 0 || fileProtocol) {
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length || fileProtocol) {
         updateHistoricalPlaybackButton();
         return;
     }
 
+    if (state.historicalMode === "off") {
+        state.historicalMode = "timeline";
+        document.getElementById("historicalImagery").value = "timeline";
+    }
     stopHistoricalPlayback({ refresh: false });
     applyBasemap("esri_imagery");
-    queuePlaybackFrame(years, 0);
+    const startIndex =
+        state.selectedHistoricalSnapshotIndex !== null
+            ? currentHistoricalPlayerIndex()
+            : 0;
+    queuePlaybackFrame(startIndex);
 }
 
 function handleFeatureMouseOver(event) {
@@ -625,6 +1222,7 @@ function applyBasemap(mode) {
     const normalizedMode = basemapDefinitions[mode] ? mode : "none";
     const resolvedMode = isHistoricalImageryActive() ? "esri_imagery" : normalizedMode;
     state.basemapMode = fileProtocol ? "none" : resolvedMode;
+    map.attributionControl.removeAttribution("Basemap disabled");
 
     if (state.basemapLayer) {
         map.removeLayer(state.basemapLayer);
@@ -650,6 +1248,7 @@ function applyBasemap(mode) {
     }
 
     updateBasemapControlState();
+    updateDashboardChrome();
 }
 
 function updateBasemapControlState() {
@@ -698,6 +1297,7 @@ function applyHistoricalImagery(force = false) {
         attribution: "© ESRI Wayback · Imagery © respective owners",
     }).addTo(map);
     updateHistoricalImageryLabel();
+    updateDashboardChrome();
 }
 
 function renderOverlayLayer() {
@@ -741,16 +1341,23 @@ function updateMetricSelect() {
     }
 }
 
+
+
 function updateLayer() {
     if (!state.geoLayer) {
         return;
     }
-    document.getElementById("periodLabel").textContent = currentPeriodKey();
+    const periodLabel = document.getElementById("periodLabel");
+    if (periodLabel) {
+        periodLabel.textContent = currentPeriodKey();
+    }
+    updateTimelineMarkerPosition();
     state.geoLayer.setStyle((feature) => computeFeatureStyle(feature, false));
     updateHistoricalPlaybackButton();
     applyHistoricalImagery();
     updateLegend();
     updateSummaryCards();
+    updateDashboardChrome();
 }
 
 function populateBasemapSelect() {
@@ -769,11 +1376,23 @@ function populateBasemapSelect() {
 
 function populateHistoricalImagerySelect() {
     const historicalSelect = document.getElementById("historicalImagery");
+    const timelineSnapshot = snapshotForYear(timelineMatchYear());
+    const baseSnapshot = snapshotForYear(state.summary?.config?.base_year);
     const options = state.historicalSnapshots.length
         ? [
               { key: "off", label: "Off" },
-              { key: "timeline", label: "Timeline Match" },
-              { key: "base", label: `Base Year (${state.summary.config.base_year})` },
+              {
+                  key: "timeline",
+                  label: timelineSnapshot
+                      ? `Timeline Match (${formatSnapshotDate(timelineSnapshot)})`
+                      : "Timeline Match",
+              },
+              {
+                  key: "base",
+                  label: baseSnapshot
+                      ? `${formatSnapshotDate(baseSnapshot)} (Base Year)`
+                      : `Base Year (${state.summary.config.base_year})`,
+              },
           ]
         : [{ key: "off", label: "Off" }];
     historicalSelect.innerHTML = options
@@ -810,6 +1429,11 @@ function populateUnitSelect() {
 }
 
 async function loadData() {
+    updateLocationChrome();
+    setLoadingState(
+        true,
+        "Loading summary, overlays, boundary, and Wayback imagery configuration.",
+    );
     const [summary, overlay, boundary, wardOverlay, waybackConfig] = await Promise.all([
         fetch("summary.json").then((response) => response.json()),
         fetch("overlay.geojson").then((response) => response.json()),
@@ -838,11 +1462,15 @@ async function loadData() {
     populateHistoricalImagerySelect();
     populateUnitSelect();
 
-    document.getElementById("title").textContent = summary.metadata.label;
+    updateLocationChrome();
+    document.getElementById("title").textContent = currentAreaLabel();
     document.getElementById("subtitle").textContent = buildSubtitle(summary);
 
     const periodSlider = document.getElementById("period");
-    periodSlider.max = Math.max(state.periods.length - 1, 0);
+    if (periodSlider) {
+        periodSlider.max = Math.max(state.periods.length - 1, 0);
+    }
+    updateTimelineMarkerPosition();
 
     updateMetricSelect();
     applyBasemap(state.basemapMode);
@@ -871,8 +1499,17 @@ async function loadData() {
         map.setView([20.5937, 78.9629], 5);
     }
 
+    updateMapTelemetry();
     updateLayer();
+    window.requestAnimationFrame(() => setLoadingState(false));
 }
+
+map.on("moveend zoomend", updateMapTelemetry);
+
+document.getElementById("metric").addEventListener("change", (event) => {
+    updateMetricSelect();
+    updateLayer();
+});
 
 document.getElementById("basemap").addEventListener("change", (event) => {
     state.preferredBasemapMode = event.target.value;
@@ -882,15 +1519,29 @@ document.getElementById("basemap").addEventListener("change", (event) => {
 document
     .getElementById("historicalImagery")
     .addEventListener("change", (event) => {
-        stopHistoricalPlayback({ refresh: false });
         state.historicalMode = event.target.value;
-        applyBasemap(
-            state.historicalMode === "off"
-                ? state.preferredBasemapMode
-                : "esri_imagery",
-        );
-        applyHistoricalImagery(true);
+        stopHistoricalPlayback({ refresh: false, resetSelection: false });
+        if (state.historicalMode === "off") {
+            applyBasemap(state.preferredBasemapMode);
+            applyHistoricalImagery(true);
+        } else {
+            const snapshots = historicalPlaybackSnapshots();
+            const targetIndex =
+                state.historicalMode === "base" ? snapshots.length - 1 : 0;
+
+            if (targetIndex >= 0) {
+                setHistoricalFrame(targetIndex, {
+                    activate: true,
+                    refresh: true,
+                    updateSliderValue: true,
+                });
+            } else {
+                applyBasemap("esri_imagery");
+                applyHistoricalImagery(true);
+            }
+        }
         updateHistoricalPlaybackButton();
+        updateLayer();
     });
 
 document
@@ -903,23 +1554,212 @@ document
         startHistoricalPlayback();
     });
 
-document.getElementById("unit").addEventListener("change", () => {
-    updateMetricSelect();
-    renderOverlayLayer();
-    updateLayer();
-});
+document
+    .getElementById("historicalStepBack")
+    .addEventListener("click", () => {
+        stepHistoricalFrame(-1);
+    });
 
-document.getElementById("metric").addEventListener("change", updateLayer);
-document.getElementById("period").addEventListener("input", () => {
-    stopHistoricalPlayback({ refresh: false });
-    updateLayer();
+document
+    .getElementById("historicalStepForward")
+    .addEventListener("click", () => {
+        stepHistoricalFrame(1);
+    });
+
+document
+    .getElementById("historicalFrame")
+    .addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 && event.pointerType !== "touch") {
+            return;
+        }
+
+        const frameInput = event.currentTarget;
+        const targetTime = historicalFrameTargetTimeFromPointer(frameInput, event.clientX);
+        if (targetTime === null) {
+            return;
+        }
+
+        const closestIndex = closestHistoricalSnapshotIndex(targetTime);
+        if (closestIndex === null) {
+            return;
+        }
+
+        stopHistoricalPlayback({ refresh: false });
+        setHistoricalFrame(closestIndex, {
+            activate: true,
+            refresh: true,
+            updateSliderValue: true
+        });
+    });
+
+document
+    .getElementById("historicalFrame")
+    .addEventListener("input", (event) => {
+        stopHistoricalPlayback({ refresh: false });
+        const targetTime = Number(event.target.value);
+        const closestIndex = closestHistoricalSnapshotIndex(targetTime);
+        if (closestIndex === null) return;
+
+        setHistoricalFrame(closestIndex, {
+            activate: true,
+            refresh: true,
+            updateSliderValue: true
+        });
+    });
+
+document
+    .getElementById("historicalSpeed")
+    .addEventListener("input", (event) => {
+        const value = Number(event.target.value);
+        if (value === 0) {
+            state.historicalPlaybackSpeedMs = 1200;
+        } else if (value === 1) {
+            state.historicalPlaybackSpeedMs = 800;
+        } else if (value === 2) {
+            state.historicalPlaybackSpeedMs = 400;
+        } else if (value === 3) {
+            state.historicalPlaybackSpeedMs = 100;
+        }
+        if (state.playbackTimerId !== null) {
+            stopHistoricalPlayback({ refresh: false });
+            startHistoricalPlayback();
+        }
+    });
+
+const periodInput = document.getElementById("period");
+if (periodInput) {
+    periodInput.addEventListener("change", () => {
+        stopHistoricalPlayback({ refresh: false, resetSelection: true });
+        updateLayer();
+        updateTimelineMarkerPosition();
+    });
+}
+
+// Gradient timeline line interaction
+const timelineGradientContainer = document.getElementById("timelineGradientContainer") ||
+    document.querySelector(".timeline-gradient-container");
+const timelineMarker = document.getElementById("timelineMarker");
+
+function updateTimelineMarkerPosition() {
+    if (!timelineMarker || !periodInput) return;
+
+    const min = parseFloat(periodInput.min) || 0;
+    const max = parseFloat(periodInput.max) || 100;
+    const value = parseFloat(periodInput.value) || 0;
+    const progress = max > min ? ((value - min) / (max - min)) * 100 : 0;
+
+    // Position marker from left, accounting for marker width
+    const containerWidth = timelineGradientContainer?.offsetWidth || 0;
+    const markerWidth = 18; // marker width in pixels
+    const leftPx = (containerWidth * progress / 100) - (markerWidth / 2);
+    timelineMarker.style.marginLeft = `${leftPx}px`;
+}
+
+if (timelineGradientContainer && periodInput) {
+    timelineGradientContainer.addEventListener("click", (event) => {
+        const containerRect = timelineGradientContainer.getBoundingClientRect();
+        const clickX = event.clientX - containerRect.left;
+        const containerWidth = containerRect.width;
+
+        const min = parseFloat(periodInput.min) || 0;
+        const max = parseFloat(periodInput.max) || 100;
+        const progress = Math.max(0, Math.min(1, clickX / containerWidth));
+        const newValue = Math.round(min + (max - min) * progress);
+
+        periodInput.value = newValue;
+        periodInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    // Keyboard navigation
+    timelineGradientContainer.addEventListener("keydown", (event) => {
+        const min = parseFloat(periodInput.min) || 0;
+        const max = parseFloat(periodInput.max) || 100;
+        const currentValue = parseFloat(periodInput.value) || 0;
+        let newValue = currentValue;
+
+        if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            newValue = Math.max(min, currentValue - 1);
+        } else if (event.key === "ArrowRight") {
+            event.preventDefault();
+            newValue = Math.min(max, currentValue + 1);
+        } else if (event.key === "Home") {
+            event.preventDefault();
+            newValue = min;
+        } else if (event.key === "End") {
+            event.preventDefault();
+            newValue = max;
+        }
+
+        if (newValue !== currentValue) {
+            periodInput.value = newValue;
+            periodInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    });
+
+    // Make container focusable for keyboard navigation
+    timelineGradientContainer.setAttribute("tabindex", "0");
+    timelineGradientContainer.setAttribute("role", "slider");
+    timelineGradientContainer.setAttribute("aria-label", "Timeline window");
+}
+
+const opacityInput = document.getElementById("opacity");
+opacityInput.addEventListener("input", updateLayer);
+opacityInput.addEventListener("change", updateLayer);
+
+function updateRangeProgress(input) {
+    const min = parseFloat(input.min) || 0;
+    const max = parseFloat(input.max) || 100;
+    const value = parseFloat(input.value) || 0;
+    const progress = max > min ? ((value - min) / (max - min)) * 100 : 0;
+
+    input.style.setProperty("--range-progress", `${progress}%`);
+}
+
+document.querySelectorAll('input[type="range"]').forEach(input => {
+    if (input.id === "period") return; // Skip period input, use gradient line instead
+
+    updateRangeProgress(input);
+    input.addEventListener('input', () => updateRangeProgress(input));
+
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    if (descriptor) {
+        const originalSet = descriptor.set;
+        Object.defineProperty(input, 'value', {
+            set: function(val) {
+                const result = originalSet.call(this, val);
+                updateRangeProgress(this);
+                return result;
+            },
+            get: descriptor.get
+        });
+    }
+    const maxDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'max');
+    if (maxDescriptor) {
+        const originalSetMax = maxDescriptor.set;
+        Object.defineProperty(input, 'max', {
+            set: function(val) {
+                const result = originalSetMax.call(this, val);
+                updateRangeProgress(this);
+                return result;
+            },
+            get: maxDescriptor.get
+        });
+    }
 });
-document.getElementById("opacity").addEventListener("input", updateLayer);
 
 loadData().catch((error) => {
-    document.getElementById("title").textContent = "Could not load analysis";
+    updateLocationChrome();
+    setLoadingState(
+        false,
+        `The ${currentAreaLabel()} analysis could not be loaded. See the details in the page message below.`,
+    );
+    document.getElementById("title").textContent =
+        `Could not load ${currentAreaLabel()} analysis`;
     document.getElementById("subtitle").textContent =
         `${error.message}. Serve the output directory with a local web server, such as ` +
         "`python -m http.server`, instead of opening this page directly from disk.";
     console.error(error);
 });
+
+updateLocationChrome();
