@@ -98,14 +98,65 @@ const basemapDefinitions = {
     },
 };
 
+const historicalPlaybackSpeeds = [2000, 1200, 800, 450];
+
+function parseFiniteNumber(value, { min = -Infinity, max = Infinity } = {}) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+        return null;
+    }
+    if (numericValue < min || numericValue > max) {
+        return null;
+    }
+    return numericValue;
+}
+
+function normalizeHistoricalMode(value) {
+    return ["off", "timeline", "base"].includes(value) ? value : null;
+}
+
+function normalizePlaybackSpeedMs(value) {
+    const numericValue = parseFiniteNumber(value, { min: 0, max: 10000 });
+    return historicalPlaybackSpeeds.includes(numericValue) ? numericValue : null;
+}
+
+function normalizeSnapshotDateKey(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+    }
+    return value;
+}
+
+function parseUrlState(params) {
+    const basemap = params.get("basemap");
+    const metric = params.get("metric");
+    const unit = params.get("unit");
+
+    return {
+        basemap: basemapDefinitions[basemap] ? basemap : null,
+        metric: metricOptions.some((option) => option.key === metric) ? metric : null,
+        unit: ["cells", "wards"].includes(unit) ? unit : null,
+        period: params.get("period"),
+        opacity: parseFiniteNumber(params.get("opacity"), { min: 0.15, max: 0.95 }),
+        historicalMode: normalizeHistoricalMode(params.get("historical")),
+        historicalSnapshotDate: normalizeSnapshotDateKey(params.get("historicalDate")),
+        speed: normalizePlaybackSpeedMs(params.get("speed")),
+        lat: parseFiniteNumber(params.get("lat"), { min: -90, max: 90 }),
+        lng: parseFiniteNumber(params.get("lng"), { min: -180, max: 180 }),
+        zoom: parseFiniteNumber(params.get("zoom"), { min: 0, max: 22 }),
+    };
+}
+
 const searchParams = new URLSearchParams(window.location.search);
 const fileProtocol = window.location.protocol === "file:";
-const requestedBasemapMode = searchParams.get("basemap");
+const initialUrlState = parseUrlState(searchParams);
+const requestedBasemapMode = initialUrlState.basemap;
 const initialBasemapMode = fileProtocol
     ? "none"
-    : basemapDefinitions[requestedBasemapMode]
-      ? requestedBasemapMode
-      : "osm";
+    : requestedBasemapMode ?? "osm";
 
 function inferLocationSlug(pathname = window.location.pathname) {
     const segments = pathname.split("/").filter(Boolean);
@@ -159,12 +210,156 @@ const state = {
     playbackSpeedMs: 1200,
     basemapMode: initialBasemapMode,
     preferredBasemapMode: initialBasemapMode,
+    urlSyncEnabled: false,
     boundsByProperty: {
         cells: {},
         wards: {},
     },
     periods: [],
 };
+
+function snapshotDateKey(snapshot) {
+    if (!snapshot?.date) {
+        return null;
+    }
+    try {
+        return snapshot.date.toISOString().split("T")[0];
+    } catch (error) {
+        return null;
+    }
+}
+
+function setUrlParam(params, key, value) {
+    if (value === null || value === undefined || value === "") {
+        params.delete(key);
+        return;
+    }
+    params.set(key, String(value));
+}
+
+function syncUrlState() {
+    if (!state.urlSyncEnabled || !state.summary) {
+        return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const center = map.getCenter();
+    const currentSnapshot = currentHistoricalSnapshot();
+
+    setUrlParam(params, "basemap", state.preferredBasemapMode);
+    setUrlParam(params, "metric", currentMetricKey());
+    setUrlParam(params, "unit", currentUnitKey());
+    setUrlParam(params, "period", currentPeriodKey());
+    setUrlParam(params, "opacity", Number(document.getElementById("opacity").value).toFixed(2));
+    setUrlParam(params, "historical", state.historicalMode);
+    setUrlParam(
+        params,
+        "historicalDate",
+        state.historicalMode === "off" &&
+            state.selectedHistoricalSnapshotIndex === null &&
+            state.playbackFrameYear === null
+            ? null
+            : snapshotDateKey(currentSnapshot),
+    );
+    setUrlParam(params, "speed", state.playbackSpeedMs);
+    setUrlParam(params, "lat", center.lat.toFixed(5));
+    setUrlParam(params, "lng", center.lng.toFixed(5));
+    setUrlParam(params, "zoom", map.getZoom().toFixed(2));
+
+    const nextSearch = params.toString();
+    const nextUrl =
+        `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}` +
+        `${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+}
+
+function applyInitialControlState() {
+    const unitSelect = document.getElementById("unit");
+    const metricSelect = document.getElementById("metric");
+    const basemapSelect = document.getElementById("basemap");
+    const historicalSelect = document.getElementById("historicalImagery");
+    const periodInput = document.getElementById("period");
+    const opacityInput = document.getElementById("opacity");
+    const speedSelect = document.getElementById("historicalSpeed");
+
+    if (
+        initialUrlState.unit &&
+        availableUnitOptions().some((option) => option.key === initialUrlState.unit)
+    ) {
+        unitSelect.value = initialUrlState.unit;
+    }
+
+    if (periodInput && state.periods.includes(initialUrlState.period)) {
+        periodInput.value = String(state.periods.indexOf(initialUrlState.period));
+    }
+
+    updateMetricSelect();
+    if (
+        initialUrlState.metric &&
+        availableMetricOptions().some((option) => option.key === initialUrlState.metric)
+    ) {
+        metricSelect.value = initialUrlState.metric;
+    }
+
+    if (initialUrlState.opacity !== null) {
+        opacityInput.value = String(initialUrlState.opacity);
+    }
+
+    if (initialUrlState.basemap) {
+        state.preferredBasemapMode = initialUrlState.basemap;
+        basemapSelect.value = initialUrlState.basemap;
+    }
+
+    if (initialUrlState.historicalMode) {
+        state.historicalMode = initialUrlState.historicalMode;
+        historicalSelect.value = initialUrlState.historicalMode;
+    }
+
+    if (initialUrlState.speed !== null) {
+        state.playbackSpeedMs = initialUrlState.speed;
+    }
+    speedSelect.value = String(state.playbackSpeedMs);
+}
+
+function applyInitialHistoricalState() {
+    const historicalSelect = document.getElementById("historicalImagery");
+    const availableModes = Array.from(historicalSelect.options).map((option) => option.value);
+
+    if (!availableModes.includes(state.historicalMode)) {
+        state.historicalMode = "off";
+    }
+    historicalSelect.value = state.historicalMode;
+
+    if (state.historicalMode === "off") {
+        resetHistoricalFrameSelection();
+        applyBasemap(state.preferredBasemapMode);
+        applyHistoricalImagery(true);
+        return;
+    }
+
+    const snapshots = historicalPlaybackSnapshots();
+    if (!snapshots.length) {
+        applyBasemap("esri_imagery");
+        applyHistoricalImagery(true);
+        return;
+    }
+
+    let targetIndex = state.historicalMode === "base" ? snapshots.length - 1 : 0;
+    if (initialUrlState.historicalSnapshotDate) {
+        const requestedIndex = snapshots.findIndex(
+            (snapshot) => snapshotDateKey(snapshot) === initialUrlState.historicalSnapshotDate,
+        );
+        if (requestedIndex >= 0) {
+            targetIndex = requestedIndex;
+        }
+    }
+
+    setHistoricalFrame(targetIndex, {
+        activate: true,
+        refresh: true,
+        updateSliderValue: true,
+    });
+}
 
 function currentAreaLabel() {
     return state.summary?.metadata?.label || fallbackLocationLabel;
@@ -1124,6 +1319,7 @@ function updateDashboardChrome() {
     updateFrameBadge();
     updateTimelineTicks();
     updateOpacityValue();
+    syncUrlState();
 }
 
 function updateMapTelemetry() {
@@ -1131,6 +1327,7 @@ function updateMapTelemetry() {
     document.getElementById("telemetryLat").textContent = center.lat.toFixed(4);
     document.getElementById("telemetryLng").textContent = center.lng.toFixed(4);
     document.getElementById("telemetryZoom").textContent = map.getZoom().toFixed(1);
+    syncUrlState();
 }
 
 function stepHistoricalFrame(direction) {
@@ -1462,6 +1659,7 @@ async function loadData() {
     populateBasemapSelect();
     populateHistoricalImagerySelect();
     populateUnitSelect();
+    applyInitialControlState();
 
     updateLocationChrome();
     document.getElementById("title").textContent = currentAreaLabel();
@@ -1473,8 +1671,7 @@ async function loadData() {
     }
     updateTimelineMarkerPosition();
 
-    updateMetricSelect();
-    applyBasemap(state.basemapMode);
+    applyBasemap(state.preferredBasemapMode);
     renderOverlayLayer();
     applyHistoricalImagery(true);
 
@@ -1494,18 +1691,33 @@ async function loadData() {
     const bounds = state.boundaryLayer
         ? state.boundaryLayer.getBounds()
         : state.geoLayer.getBounds();
-    if (bounds.isValid()) {
+    if (
+        initialUrlState.lat !== null &&
+        initialUrlState.lng !== null &&
+        initialUrlState.zoom !== null
+    ) {
+        map.setView([initialUrlState.lat, initialUrlState.lng], initialUrlState.zoom);
+    } else if (bounds.isValid()) {
         map.fitBounds(bounds.pad(0.08));
     } else {
         map.setView([20.5937, 78.9629], 5);
     }
 
+    applyInitialHistoricalState();
     updateMapTelemetry();
     updateLayer();
+    state.urlSyncEnabled = true;
+    syncUrlState();
     window.requestAnimationFrame(() => setLoadingState(false));
 }
 
 map.on("moveend zoomend", updateMapTelemetry);
+
+document.getElementById("unit").addEventListener("change", () => {
+    updateMetricSelect();
+    renderOverlayLayer();
+    updateLayer();
+});
 
 document.getElementById("metric").addEventListener("change", (event) => {
     updateMetricSelect();
@@ -1611,20 +1823,13 @@ document
 document
     .getElementById("historicalSpeed")
     .addEventListener("input", (event) => {
-        const value = Number(event.target.value);
-        if (value === 0) {
-            state.historicalPlaybackSpeedMs = 1200;
-        } else if (value === 1) {
-            state.historicalPlaybackSpeedMs = 800;
-        } else if (value === 2) {
-            state.historicalPlaybackSpeedMs = 400;
-        } else if (value === 3) {
-            state.historicalPlaybackSpeedMs = 100;
-        }
+        state.playbackSpeedMs =
+            normalizePlaybackSpeedMs(event.target.value) ?? state.playbackSpeedMs;
         if (state.playbackTimerId !== null) {
             stopHistoricalPlayback({ refresh: false });
             startHistoricalPlayback();
         }
+        syncUrlState();
     });
 
 const periodInput = document.getElementById("period");
