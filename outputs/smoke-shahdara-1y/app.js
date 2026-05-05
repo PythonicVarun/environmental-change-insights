@@ -1293,6 +1293,7 @@ function applyHistoricalImagery(force = false) {
     state.historicalLayer = L.tileLayer(nextSnapshot.tileUrl, {
         pane: "historicalPane",
         maxZoom: 18,
+        maxNativeZoom: nextSnapshot.date < new Date("2021-07-01") ? 17 : 18, // this magic date has came from Varun's analysis of Wayback snapshots. So, once re-confirm before changing or removing this condition in the future.
         crossOrigin: true,
         attribution: "© ESRI Wayback · Imagery © respective owners",
     }).addTo(map);
