@@ -93,7 +93,7 @@ const basemapDefinitions = {
         url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         options: {
             attribution: "Tiles &copy; Esri",
-            maxZoom: 19,
+            maxZoom: 18,
         },
     },
 };
@@ -1292,7 +1292,7 @@ function applyHistoricalImagery(force = false) {
 
     state.historicalLayer = L.tileLayer(nextSnapshot.tileUrl, {
         pane: "historicalPane",
-        maxZoom: 19,
+        maxZoom: 18,
         crossOrigin: true,
         attribution: "© ESRI Wayback · Imagery © respective owners",
     }).addTo(map);
@@ -1520,7 +1520,7 @@ document
     .getElementById("historicalImagery")
     .addEventListener("change", (event) => {
         state.historicalMode = event.target.value;
-        stopHistoricalPlayback({ refresh: false, resetSelection: false });
+        stopHistoricalPlayback({ refresh: false, resetSelection: state.historicalMode === "off" });
         if (state.historicalMode === "off") {
             applyBasemap(state.preferredBasemapMode);
             applyHistoricalImagery(true);
