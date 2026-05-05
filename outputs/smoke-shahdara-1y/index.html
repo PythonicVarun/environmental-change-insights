@@ -4,6 +4,7 @@
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>OlmoEarth Change Overlay</title>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%2210 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌏</text></svg>">
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
@@ -18,61 +19,253 @@
         />
         <link rel="stylesheet" href="./styles.css" />
     </head>
-    <body>
-        <div class="shell">
-            <aside class="panel">
-                <div class="eyebrow">OlmoEarth Change Desk</div>
-                <h1 id="title">Loading analysis...</h1>
-                <p id="subtitle" class="subtitle">
-                    Reading summary and overlay layers.
-                </p>
+    <body class="is-loading">
+        <div class="loading-screen" id="loadingScreen" aria-live="polite">
+            <div class="loading-panel">
+                <div class="loading-mark">O</div>
+                <div class="loading-title" id="loadingTitle">Preparing Monitor</div>
+                <div class="loading-copy" id="loadingMessage">
+                    Loading summary, overlays, boundary, and Wayback imagery configuration.
+                </div>
+                <div class="loading-bar">
+                    <span class="loading-bar-fill"></span>
+                </div>
+            </div>
+        </div>
+        <div class="app-shell">
+            <header class="topbar">
+                <!-- <button class="nav-button" type="button" aria-label="Workspace menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button> -->
 
-                <section class="controls">
-                    <label for="metric">Metric</label>
-                    <select id="metric"></select>
-
-                    <label for="period">Lookback Period</label>
-                    <input
-                        id="period"
-                        type="range"
-                        min="0"
-                        max="0"
-                        value="0"
-                        step="1"
-                    />
-                    <div id="periodLabel" class="period-label"></div>
-
-                    <label for="opacity">Overlay Opacity</label>
-                    <input
-                        id="opacity"
-                        type="range"
-                        min="0.15"
-                        max="0.95"
-                        value="0.7"
-                        step="0.05"
-                    />
-                </section>
-
-                <section class="legend-card">
-                    <div class="legend-title">Legend</div>
-                    <div id="legendScale" class="legend-scale"></div>
-                    <div class="legend-range">
-                        <span id="legendMin">0</span>
-                        <span id="legendMax">0</span>
+                <div class="brand">
+                    <div class="brand-mark">O</div>
+                    <div class="brand-copy">
+                        <div class="brand-title">OlmoEarth Monitor</div>
+                        <p id="subtitle" class="topbar-subtitle">
+                            Reading summary and overlay layers.
+                        </p>
                     </div>
-                </section>
+                </div>
 
-                <section class="summary-grid" id="summaryGrid"></section>
+                <div class="topbar-meta">
+                    <div class="status-pill">
+                        <span class="status-dot"></span>
+                        <span id="statusText">Initializing</span>
+                    </div>
+                    <div class="prompt-pill">
+                        <span class="prompt-kicker">Focus</span>
+                        <span id="promptText">Change review loading</span>
+                    </div>
+                </div>
+            </header>
 
-                <section>
-                    <div class="legend-title">Top Hotspots</div>
-                    <div id="hotspots" class="hotspots"></div>
-                </section>
-            </aside>
+            <div class="workspace">
+                <aside class="sidebar">
+                    <section class="sidebar-card intro-card">
+                        <div class="section-label">Study Area</div>
+                        <h1 id="title">Loading analysis...</h1>
+                        <p class="intro-note">
+                            Multi-layer historical review for urban and environmental change.
+                        </p>
+                        <div class="control-stack">
+                            <label for="unit">Analysis Units</label>
+                            <select id="unit"></select>
+                        </div>
+                    </section>
 
-            <main class="map-wrap">
-                <div id="map"></div>
-            </main>
+                    <section class="sidebar-card focus-card">
+                        <div class="section-label">Change Signal</div>
+                        <div class="focus-value-row">
+                            <div id="focusValue" class="focus-value">--</div>
+                            <div id="focusUnit" class="focus-unit">summary</div>
+                        </div>
+                        <div id="focusCaption" class="focus-caption">
+                            Selected metric summary will appear here.
+                        </div>
+                        <div id="trendChart" class="trend-chart" aria-hidden="true"></div>
+                    </section>
+
+                    <section class="sidebar-card detail-card">
+                        <div class="section-label">Frame Details</div>
+                        <div class="detail-grid">
+                            <div class="detail-tile">
+                                <span>Base Year</span>
+                                <strong id="baseYearLabel">--</strong>
+                            </div>
+                            <div class="detail-tile">
+                                <span>Timeline Match</span>
+                                <strong id="timelineYearLabel">--</strong>
+                            </div>
+                            <div class="detail-tile">
+                                <span>Historical Frame</span>
+                                <strong id="activeFrameLabel">Off</strong>
+                            </div>
+                            <div class="detail-tile">
+                                <span>Coverage</span>
+                                <strong id="coverageLabel">--</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="sidebar-card controls-card">
+                        <div class="section-label">Layer Controls</div>
+                        <div class="control-stack">
+                            <label for="historicalImagery">Historical Snapshot</label>
+                            <select id="historicalImagery"></select>
+                            <div id="historicalImageryLabel" class="helper-label"></div>
+                        </div>
+
+                        <div class="control-stack">
+                            <label for="metric">Metric</label>
+                            <select id="metric"></select>
+                        </div>
+
+                        <div class="control-stack">
+                            <label for="basemap">Basemap</label>
+                            <select id="basemap"></select>
+                        </div>
+                    </section>
+
+                    <section class="sidebar-card legend-card">
+                        <div class="section-label">Legend</div>
+                        <div id="legendScale" class="legend-scale"></div>
+                        <div class="legend-range">
+                            <span id="legendMin">0</span>
+                            <span id="legendMax">0</span>
+                        </div>
+                    </section>
+
+                    <section class="sidebar-card">
+                        <div class="section-label">Analysis Summary</div>
+                        <div class="summary-grid" id="summaryGrid"></div>
+                    </section>
+
+                    <section class="sidebar-card">
+                        <div class="section-label">Top Hotspots</div>
+                        <div id="hotspots" class="hotspots"></div>
+                    </section>
+                </aside>
+
+                <main class="stage">
+                    <div id="map"></div>
+
+                    <div class="map-badge map-badge-frame">
+                        <div id="frameBadgeTitle" class="map-badge-title">
+                            Loading frame
+                        </div>
+                        <div id="frameBadgeSubtitle" class="map-badge-copy">
+                            Location change analysis
+                        </div>
+                    </div>
+
+                    <div class="map-badge map-badge-telemetry" id="mapTelemetry">
+                        <div class="telemetry-row">
+                            <span>LAT</span>
+                            <strong id="telemetryLat">--</strong>
+                        </div>
+                        <div class="telemetry-row">
+                            <span>LNG</span>
+                            <strong id="telemetryLng">--</strong>
+                        </div>
+                        <div class="telemetry-row">
+                            <span>ZOOM</span>
+                            <strong id="telemetryZoom">--</strong>
+                        </div>
+                    </div>
+
+                    <div class="timeline-dock">
+                        <div class="player-panel">
+                            <div class="player-track-wrap">
+                                <div id="playerTooltip" class="player-tooltip" aria-hidden="true"></div>
+                                <div id="playerTicks" class="player-ticks"></div>
+                                <input
+                                    id="historicalFrame"
+                                    type="range"
+                                    min="0"
+                                    max="0"
+                                    value="0"
+                                    step="1"
+                                />
+                                <div class="player-track-labels">
+                                    <span id="playerMinYear"></span>
+                                    <span id="playerMaxYear"></span>
+                                </div>
+                            </div>
+                            <div class="player-topbar">
+                                <div class="player-primary">
+                                    <div class="player-meta">
+                                        <div class="player-meta-copy">
+                                            <span class="section-label">Wayback Player</span>
+                                            <strong
+                                                id="historicalFrameLabel"
+                                                class="timeline-title-value"
+                                            >
+                                                Historical imagery off
+                                            </strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="player-controls">
+                                        <button
+                                            id="historicalStepBack"
+                                            type="button"
+                                            class="player-button"
+                                            aria-label="Previous historical frame"
+                                        >
+                                            &#9664;
+                                        </button>
+                                        <button
+                                            id="historicalPlayback"
+                                            type="button"
+                                            class="ghost-button timeline-play"
+                                            aria-label="Play historical imagery"
+                                        >
+                                            &#9654;
+                                        </button>
+                                        <button
+                                            id="historicalStepForward"
+                                            type="button"
+                                            class="player-button"
+                                            aria-label="Next historical frame"
+                                        >
+                                            &#9654;
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="player-secondary">
+                                    <div class="opacity-panel">
+                                        <div class="opacity-head">
+                                            <span class="section-label">Opacity</span>
+                                            <strong id="opacityValue">70%</strong>
+                                        </div>
+                                        <input
+                                            id="opacity"
+                                            type="range"
+                                            min="0.15"
+                                            max="0.95"
+                                            value="0.7"
+                                            step="0.05"
+                                        />
+                                    </div>
+                                    <label class="player-speed" for="historicalSpeed">
+                                        <span class="section-label">Speed</span>
+                                        <select id="historicalSpeed">
+                                            <option value="2000">0.5x</option>
+                                            <option value="1200" selected>1x</option>
+                                            <option value="800">1.5x</option>
+                                            <option value="450">2x</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
         </div>
 
         <script
