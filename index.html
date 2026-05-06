@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>OlmoEarth Output Library</title>
+        <title>OlmoEarth Output Library - Insights</title>
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%2210 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌏</text></svg>">
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,50 +12,225 @@
             rel="stylesheet"
         />
         <link rel="stylesheet" href="./landing/styles.css" />
+        <style>
+            .insights-list {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 24px;
+            }
+            @media (max-width: 980px) {
+                .insights-list {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .insight-content {
+                font-size: 1.05rem;
+                line-height: 1.6;
+                color: var(--text);
+                margin-top: 12px;
+                margin-bottom: 24px;
+            }
+        </style>
     </head>
     <body>
         <div class="shell">
-            <header class="hero">
+            <header class="hero" style="grid-template-columns: 1fr;">
                 <div class="hero-copy">
                     <div class="eyebrow">OlmoEarth Change Desk</div>
-                    <h1 id="siteTitle">Loading output library...</h1>
-                    <p id="siteSubtitle" class="hero-subtitle">
-                        Reading the catalog and summarizing generated analysis
-                        bundles.
+                    <h1>Environmental Change Insights</h1>
+                    <p class="hero-subtitle">
+                        A curated collection of major ecological disruptions and urban terraforming events detected across our study regions.
                     </p>
-                </div>
-                <div class="hero-controls">
-                    <label class="control-label" for="search"
-                        >Search Outputs</label
-                    >
-                    <input
-                        id="search"
-                        class="search-input"
-                        type="search"
-                        placeholder="Search by district, state, tags, or notes"
-                    />
-                    <div id="libraryStats" class="stats-grid"></div>
                 </div>
             </header>
 
             <main>
-                <section class="section-head">
-                    <div>
-                        <div class="section-title">Available Outputs</div>
-                        <div id="sectionHint" class="section-subtitle">
-                            Each card is driven by the catalog JSON plus the
-                            run's summary file.
+                <section class="insights-list">
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 1</div>
+                                <h2 class="analysis-title">Deluge at the Border: Sahibi River Basin Swallows Farmlands Whole</h2>
+                            </div>
+                            <div class="card-badge">Gurgaon</div>
                         </div>
-                    </div>
-                </section>
+                        <div class="insight-content">
+                            Recent geospatial data paints a grim picture at the Delhi-Haryana border, where massive inundation has completely rewritten the landscape along the Sahibi river since 2020. Satellite tracking reveals a staggering vegetation loss of -1.067, directly corresponding to an alarming surface water spike of 0.897 that has submerged vast tracts of former agricultural land. What were once distinctly patterned green fields just five years ago are now entirely drowned beneath a murky, stagnant expanse. This severe ecological disruption raises immediate concerns about blocked drainage channels, altered natural basins, and the escalating flood risks threatening the border's fragile ecosystem.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=esri_imagery&metric=vegetation_delta&unit=cells&period=5y&opacity=0.30&historical=timeline&speed=1200&lat=28.50535&lng=76.93170&zoom=16.00&historicalDate=2022-09-21" target="_blank">21st Sep, 2022</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=esri_imagery&metric=vegetation_delta&unit=cells&period=5y&opacity=0.30&historical=timeline&speed=1200&lat=28.50535&lng=76.93170&zoom=16.00&historicalDate=2022-08-31" target="_blank">31st Aug, 2022</a>
+                            <a class="action-link secondary" href="https://www.indiatoday.in/india/story/gurugram-gurgaon-urban-floods-waterlogging-sahibi-river-lost-aravalli-hills-delhi-haryana-hydrology-natural-drainage-2781896-2025-09-08" target="_blank">India Today</a>
+                            <a class="action-link secondary" href="https://indianexpress.com/article/explained/why-even-moderate-rainfall-leads-to-flooding-in-gurgaon-10131520/" target="_blank">Indian Express</a>
+                        </div>
+                    </article>
 
-                <section id="catalogGrid" class="catalog-grid"></section>
-                <div id="emptyState" class="empty-state" hidden>
-                    No outputs match the current search.
-                </div>
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 2</div>
+                                <h2 class="analysis-title">Vanishing Oasis: Yamuna's Retreat Leaves Okhla Bird Sanctuary Parched</h2>
+                            </div>
+                            <div class="card-badge">Gautam Buddha Nagar</div>
+                        </div>
+                        <div class="insight-content">
+                            Once renowned as a vital haven for over 300 bird species, the Okhla Bird Sanctuary in Gautam Buddha Nagar is facing a severe ecological crisis as its primary water source rapidly vanishes. Geospatial analysis comparing 2015 to 2025 reveals a drastic water retreat across the Yamuna riverbed, marked by a massive negative water delta of -1.137. Where a sprawling lake once stood, satellite imagery now exposes a combination of encroaching urban development (0.688) and expanding tracts of bare, exposed soil (0.645). This devastating ten-year drying trend not only tarnishes the sanctuary's former charm but threatens to permanently destroy a crucial ecological wetland beneath the pressure of regional concrete sprawl.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=water_delta&unit=cells&period=10y&opacity=0.15&historical=timeline&speed=1200&lat=28.55676&lng=77.32302&zoom=15.00&historicalDate=2017-08-10" target="_blank">10th Aug, 2017</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=water_delta&unit=cells&period=10y&opacity=0.55&historical=timeline&speed=1200&lat=28.55676&lng=77.32302&zoom=15.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link secondary" href="https://www.newindianexpress.com/states/delhi/2025/Jun/06/from-feathered-paradise-to-forgotten-dump-okhla-sanctuary-loses-charm" target="_blank">New Indian Express</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 3</div>
+                                <h2 class="analysis-title">Engineered Ecology: Noida's 'Wetland Park' Masks Severe Natural Water Retreat</h2>
+                            </div>
+                            <div class="card-badge">Gautam Buddha Nagar</div>
+                        </div>
+                        <div class="insight-content">
+                            Recent geospatial tracking of Noida’s City Park between 2015 and 2025 reveals a startling ecological paradox behind the much-touted 'Waste to Wealth' wetland project. While aerial imagery showcases new manicured ponds and intricate walking paths, the site has actually suffered a massive natural surface water deficit of -1.076. This severe water retreat is directly tied to the heavy recreational landscaping of the area, which is marked by an urban expansion surge of 0.717. Ultimately, beneath the eco-friendly branding, aggressive concretization has paved over a raw natural basin to create a purely cosmetic, highly engineered recreational space.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=water_delta&unit=cells&period=10y&opacity=0.35&historical=base&speed=1200&lat=28.59664&lng=77.35729&zoom=17.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=water_delta&unit=cells&period=10y&opacity=0.35&historical=base&speed=1200&lat=28.59664&lng=77.35729&zoom=17.00&historicalDate=2015-01-21" target="_blank">21st Jan, 2015</a>
+                            <a class="action-link secondary" href="https://maps.app.goo.gl/7TQGL4jjF5YmvLJMA" target="_blank">Google Maps</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 4</div>
+                                <h2 class="analysis-title">Flight Path Over Farmland: Jewar's Mega-Airport Eradicates Agrarian Green Belt</h2>
+                            </div>
+                            <div class="card-badge">Gautam Buddha Nagar</div>
+                        </div>
+                        <div class="insight-content">
+                            Recent satellite imagery from 2015 to 2025 captures the sheer, unapologetic scale of infrastructural terraforming at the Noida International Airport site in Jewar. What was once an uninterrupted stretch of fertile agricultural land has been completely paved over, marked by a significant vegetation drop of -0.426. In its place, massive runways and terminal complexes have aggressively taken root, driving a sharp urban expansion spike of 0.287 and leaving vast tracts of bare, stripped soil (0.277) in their wake. While this aviation mega-project promises unprecedented economic capacity for the region, the geospatial data bluntly illustrates the absolute, irreversible sacrifice of the local agrarian ecosystem required to get it off the ground.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=vegetation_delta&unit=cells&period=10y&opacity=0.55&historical=base&speed=1200&lat=28.17355&lng=77.61789&zoom=15.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=vegetation_delta&unit=cells&period=10y&opacity=0.25&historical=base&speed=1200&lat=28.17355&lng=77.61789&zoom=15.00&historicalDate=2015-01-21" target="_blank">21st Jan, 2015</a>
+                            <a class="action-link secondary" href="https://maps.app.goo.gl/HgYnoMjBkXQBpgHj9" target="_blank">Google Maps</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 5</div>
+                                <h2 class="analysis-title">Solar Sprawl: Maruti’s ‘Green’ Expansion Paves Over Manesar's Natural Cover</h2>
+                            </div>
+                            <div class="card-badge">Gurgaon</div>
+                        </div>
+                        <div class="insight-content">
+                            Recent satellite tracking of IMT Manesar between 2020 and 2025 exposes the harsh ecological trade-off behind Maruti Suzuki's sprawling plant and sports complex development. While the installation of massive new solar arrays paints a picture of sustainable modernization, geospatial data reveals this infrastructure boom has driven a severe vegetation plunge of -0.943. The aggressive land grab for these panel installations and expanded facilities has triggered an urban surge of 0.474, systematically stripping away the area's remaining scrublands. Ultimately, the corporate push for renewable power and expanded operational capacity has been achieved by permanently suffocating the local, living ecosystem beneath glass, metal, and concrete.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.45&historical=timeline&speed=1200&lat=28.36679&lng=76.89807&zoom=16.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.45&historical=timeline&speed=1200&lat=28.36679&lng=76.89807&zoom=16.00&historicalDate=2020-01-08" target="_blank">8th Jan, 2020</a>
+                            <a class="action-link secondary" href="https://maps.app.goo.gl/5bKL5rnrKbe5iajK8" target="_blank">Google Maps</a>
+                            <a class="action-link secondary" href="https://en.wikipedia.org/wiki/Maruti_Suzuki#:~:text=In%20November%202021%20Maruti%20Suzuki%20announce%20to%20set%20up%20of%20a%20big%20plant%20in%20IMT%20Kharkhoda%20in%20Sonipat%20district%20across%20900%20acres%20with%20an%20investment%20of%20%E2%82%B918%2C000%20crores.%5B42%5D" target="_blank">Wikipedia</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 6</div>
+                                <h2 class="analysis-title">Supply Chain Chokehold: Mega-Warehouse Bulldozes Pataudi's Farmland</h2>
+                            </div>
+                            <div class="card-badge">Gurgaon</div>
+                        </div>
+                        <div class="insight-content">
+                            Recent geospatial imagery from 2020 to 2025 lays bare the ruthless bulldozing of Gurugram’s rural outskirts, where massive logistics warehouses have entirely swallowed once-lush agricultural plots in Ransika. Satellite tracking of this brutal industrial sprawl reveals a catastrophic vegetation plunge of -0.979 as gigantic commercial sheds aggressively pave over former orchards and crop fields. This unyielding terraforming has triggered a stark urban expansion spike of 0.415, replacing fertile, living soil with dead concrete and exposed dirt. Ultimately, this unapologetic land grab prioritizes corporate supply chains over environmental survival, permanently suffocating the local ecosystem to feed a relentless appetite for storage infrastructure.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.55&historical=base&speed=1200&lat=28.31117&lng=76.74496&zoom=18.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.30&historical=base&speed=1200&lat=28.31117&lng=76.74496&zoom=18.00&historicalDate=2020-01-08" target="_blank">8th Jan, 2020</a>
+                            <a class="action-link secondary" href="https://maps.app.goo.gl/xyGfAwA3weNfWXVx6" target="_blank">Google Maps</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 7</div>
+                                <h2 class="analysis-title">Commercial Sprawl: Gurugram’s Retail Expansion Scrapes Away Green Cover</h2>
+                            </div>
+                            <div class="card-badge">Gurgaon</div>
+                        </div>
+                        <div class="insight-content">
+                            Recent satellite imagery between 2020 and 2025 highlights the stark environmental cost of commercial development along Gurugram's Sheetla Mata Road. Geospatial data confirms that the construction of new commercial compounds — including the site housing the Orientbell Tiles Boutique — has driven a severe vegetation loss of -0.845 across the immediate area. This retail and warehousing expansion has directly replaced dense, natural scrubland with concrete infrastructure, triggering an urban spike of 0.145 and stripping the topsoil bare (0.203). While serving as a hub for local home development, the satellite feed exposes how rapidly these commercial clusters are erasing Gurugram’s peripheral green patches.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.50&historical=timeline&speed=1200&lat=28.48704&lng=77.04336&zoom=17.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.30&historical=timeline&speed=1200&lat=28.48704&lng=77.04336&zoom=17.00&historicalDate=2020-01-08" target="_blank">8th Jan, 2020</a>
+                            <a class="action-link secondary" href="https://maps.app.goo.gl/6JQzv74cSkdZjhoy6" target="_blank">Google Maps</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 8</div>
+                                <h2 class="analysis-title">Concrete Harvest: 'Olive Greens' Construction Bulldozes Gurugram's Natural Belt</h2>
+                            </div>
+                            <div class="card-badge">Gurgaon</div>
+                        </div>
+                        <div class="insight-content">
+                            Recent satellite tracking from 2020 to 2025 exposes the ironic ecological reality behind Gurugram's new 'Olive Greens' housing complex. What was once a sprawling, uninterrupted tract of raw agricultural land has been completely stripped, resulting in a severe vegetation loss of -0.601. The aggressive site clearance and ongoing construction have paved over the earth, driving an urban expansion surge of 0.148 and artificially trapping surface water (0.523) in disrupted drainage paths. Beneath the promise of a luxury residential hub, the geospatial data clearly illustrates the total, systematic eradication of the sector's authentic green cover to make way for high-end concrete.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.60&historical=timeline&speed=1200&lat=28.47140&lng=76.99055&zoom=18.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gurgaon/?basemap=osm&metric=vegetation_delta&unit=cells&period=5y&opacity=0.15&historical=timeline&speed=1200&lat=28.47140&lng=76.99055&zoom=18.00&historicalDate=2020-01-08" target="_blank">8th Jan, 2020</a>
+                            <a class="action-link secondary" href="https://maps.app.goo.gl/8g8UtovAPHeUdySk9" target="_blank">Google Maps</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 9</div>
+                                <h2 class="analysis-title">Toxic Terrain: Noida's Green Lung Butchered for a Massive Trash Mountain</h2>
+                            </div>
+                            <div class="card-badge">Gautam Buddha Nagar</div>
+                        </div>
+                        <div class="insight-content">
+                            Geospatial tracking from 2015 to 2025 exposes a brutal environmental degradation in Mubarikpur, where a dense natural forest has been unapologetically transformed into a colossal civic dumping ground. Satellite data records a devastating vegetation wipeout of -0.640, as the lush canopy was systematically bulldozed and replaced by a rapidly expanding wasteland (Urban: 0.533). This gross mismanagement has deeply scarred the landscape, driving a massive spike in bare, contaminated soil (0.532) and triggering a sharp rise in the local pollution proxy (0.212). Instead of preserving vital green buffers, authorities have essentially choked a living ecosystem to death under thousands of tons of mounting garbage.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=vegetation_delta&unit=cells&period=10y&opacity=0.55&historical=timeline&speed=1200&lat=28.48053&lng=77.45639&zoom=17.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=vegetation_delta&unit=cells&period=10y&opacity=0.15&historical=timeline&speed=1200&lat=28.48053&lng=77.45639&zoom=17.00&historicalDate=2015-01-21" target="_blank">21st Jan, 2015</a>
+                            <a class="action-link secondary" href="https://timesofindia.indiatimes.com/city/ghaziabad/noida-begins-temporary-dumping-of-waste-in-mubarakpur-village/articleshow/64770413.cms" target="_blank">Times of India</a>
+                        </div>
+                    </article>
+
+                    <article class="analysis-card">
+                        <div class="card-top">
+                            <div>
+                                <div class="card-eyebrow">Insight 10</div>
+                                <h2 class="analysis-title">Concrete Over Conservation: Urban Sprawl Chokes Dhanauri Wetlands Dry</h2>
+                            </div>
+                            <div class="card-badge">Gautam Buddha Nagar</div>
+                        </div>
+                        <div class="insight-content">
+                            In a devastating ecological blow, recent satellite tracking from 2015 to 2025 reveals that the once-teeming Dhanauri Wetlands are rapidly collapsing under the weight of unregulated regional development. Geospatial data exposes a massive water retreat (-1.119 delta), reducing the sprawling bird sanctuary to fragmented, muddy puddles. This severe drying is directly fueled by aggressive, unchecked urban encroachment in the vicinity, which has recorded a sharp expansion surge of 0.592. As concrete relentlessly paves over natural drainage basins and exposed soil expands (0.389), this crucial natural heritage site is being systematically eradicated.
+                        </div>
+                        <div class="action-row">
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=water_delta&unit=cells&period=10y&opacity=0.45&historical=base&speed=1200&lat=28.33872&lng=77.62137&zoom=17.00&historicalDate=2025-12-18" target="_blank">18th Dec, 2025</a>
+                            <a class="action-link primary" href="https://pythonicvarun.github.io/olmoearth-change-insights/outputs/gautam_buddha_nagar/?basemap=esri_imagery&metric=water_delta&unit=cells&period=10y&opacity=0.15&historical=base&speed=1200&lat=28.33872&lng=77.62137&zoom=17.00&historicalDate=2015-01-21" target="_blank">21st Jan, 2015</a>
+                            <a class="action-link secondary" href="https://theprint.in/ground-reports/jewar-airport-has-fuelled-a-fight-for-dhanauri-wetlands-up-now-has-to-balance-3-priorities/1816393/" target="_blank">The Print</a>
+                            <a class="action-link secondary" href="https://timesofindia.indiatimes.com/city/noida/sarus-habitat-dhanauri-a-step-closer-to-being-notified-a-wetland/articleshow/92049188.cms" target="_blank">Times of India</a>
+                        </div>
+                    </article>
+
+                </section>
             </main>
         </div>
-
-        <script src="./landing/app.js"></script>
     </body>
 </html>
