@@ -16,7 +16,10 @@ import json
 import shutil
 import subprocess
 import sys
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore", message="Dataset has no geotransform")
 
 INSTALL_PACKAGES = [
     "geopandas>=1.1.1",
