@@ -193,12 +193,17 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
 
     requested_workers = min(config.workers, max(1, len(tile_rows)))
     resolved_device = resolve_torch_device(config.device)
-    if resolved_device.type == "cuda" and requested_workers > 1:
-        metadata["workers_note"] = (
-            "workers>1 was requested, but CUDA execution currently runs with workers=1 "
-            "to avoid GPU contention."
-        )
-        requested_workers = 1
+    if resolved_device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+        if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory / (1024**3) >= 8:
+            if requested_workers > 1:
+                metadata["workers_note"] = (
+                    "workers>1 was requested with CUDA; using batched tile processing."
+                )
+        if requested_workers > 4:
+            requested_workers = 4
+            metadata["workers_capped"] = "reduced to 4 to avoid GPU memory contention"
 
     if resolved_device.type == "cpu" and requested_workers > 1:
         cpu_count = os_cpu_count() or requested_workers
@@ -966,12 +971,21 @@ def _search_sentinel2_items_cached(
 
 def _embedding_batch_size() -> int:
     override = os.environ.get("OLMOEARTH_ENCODER_BATCH_SIZE")
-    if override is None:
+    if override is not None:
+        try:
+            return max(1, int(override))
+        except ValueError:
+            pass
+    if torch.cuda.is_available():
+        total_memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        if total_memory_gb >= 24:
+            return 32
+        elif total_memory_gb >= 16:
+            return 16
+        elif total_memory_gb >= 8:
+            return 8
         return 4
-    try:
-        return max(1, int(override))
-    except ValueError:
-        return 4
+    return 4
 
 
 def compute_embeddings(
@@ -1040,6 +1054,10 @@ def compute_embeddings(
                 "tokens_and_masks"
             ].sentinel2_l2a
             pooled_batch = encoded.mean(dim=[3, 4]).permute(0, 3, 1, 2).cpu().numpy()
+
+            del tensor, mask, sample, encoded
+            if device.type == "cuda" and (start + batch_size) % (batch_size * 4) == 0:
+                torch.cuda.empty_cache()
 
             for idx, (top, left) in enumerate(batch_windows):
                 pooled = pooled_batch[idx]
@@ -2007,8 +2025,13 @@ def load_olmoearth_model(model_name: str, device_type: str = "cpu") -> torch.nn.
             torch_threads = max(1, (os_cpu_count() or 2) - 1)
         torch.set_num_threads(torch_threads)
     model = load_model_from_id(model_id_from_name(model_name))
-    model.to(torch.device(device_type))
+    device = torch.device(device_type)
+    model.to(device)
     model.eval()
+    if device_type == "cuda":
+        for module in model.modules():
+            if hasattr(module, 'half'):
+                pass
     return model
 
 
@@ -2053,3 +2076,27 @@ def embedding_dim_for_model(model_name: str) -> int:
         "large": 1024,
     }
     return mapping[model_name.lower()]
+
+
+def get_gpu_memory_info() -> dict[str, float]:
+    if not torch.cuda.is_available():
+        return {}
+    total = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+    allocated = torch.cuda.memory_allocated(0) / (1024**3)
+    reserved = torch.cuda.memory_reserved(0) / (1024**3)
+    return {
+        "total_gb": round(total, 2),
+        "allocated_gb": round(allocated, 2),
+        "reserved_gb": round(reserved, 2),
+        "free_gb": round(total - allocated, 2),
+    }
+
+
+def resolve_tile_gpu_assignment(tile_idx: int, num_tiles: int, num_gpus: int) -> int:
+    gpu_override = os.environ.get("OLMOEARTH_GPU_ID")
+    if gpu_override is not None:
+        try:
+            return int(gpu_override) % max(1, num_gpus)
+        except ValueError:
+            pass
+    return tile_idx % max(1, num_gpus)
