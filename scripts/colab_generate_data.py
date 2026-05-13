@@ -64,7 +64,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--state", help="State / ADM1 name.")
     parser.add_argument("--district", help="District / ADM2 name.")
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="Directory where outputs will be written.",
+    )
     parser.add_argument("--base-year", type=int, default=2025)
     parser.add_argument("--periods", type=int, nargs="+", default=[1, 5, 10])
     parser.add_argument(
@@ -92,12 +97,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-population",
         action="store_true",
-        help="Skip WorldPop population overlays if you want the quickest runs.",
+        help="Skip WorldPop population overlays.",
     )
     parser.add_argument(
         "--skip-pollution",
         action="store_true",
-        help="Skip the Sentinel-2 aerosol pollution proxy if you want the quickest runs.",
+        help="Skip the Sentinel-2 aerosol pollution proxy.",
     )
     parser.add_argument(
         "--skip-wards",
@@ -115,11 +120,45 @@ def parse_args() -> argparse.Namespace:
         help="Skip writing per-tile embedding-change rasters to speed up I/O.",
     )
     parser.add_argument(
+        "--skip-embeddings",
+        action="store_true",
+        help="Skip computing OlmoEarth embeddings to speed up processing.",
+    )
+    parser.add_argument(
+        "--skip-ndvi",
+        action="store_true",
+        help="Skip computing NDVI (Normalized Difference Vegetation Index).",
+    )
+    parser.add_argument(
+        "--skip-mndwi",
+        action="store_true",
+        help="Skip computing MNDWI (Modified Normalized Difference Water Index).",
+    )
+    parser.add_argument(
+        "--skip-ndbi",
+        action="store_true",
+        help="Skip computing NDBI (Normalized Difference Built-up Index).",
+    )
+    parser.add_argument(
+        "--skip-bsi",
+        action="store_true",
+        help="Skip computing BSI (Bare Soil Index).",
+    )
+    parser.add_argument(
+        "--skip-all-metrics",
+        action="store_true",
+        help="Skip computing all metrics (embeddings, NDVI, MNDWI, NDBI, BSI).",
+    )
+    parser.add_argument(
         "--enable-historical-imagery",
         action="store_true",
         help="Export historical imagery previews and historical_imagery.json output.",
     )
-    parser.add_argument("--max-tiles", type=int)
+    parser.add_argument(
+        "--max-tiles",
+        type=int,
+        help="Optional cap for a faster pilot run. Omit to process the full district/state.",
+    )
     parser.add_argument("--cache-dir", type=Path, default=Path(".cache"))
     parser.add_argument(
         "--installer",
@@ -189,6 +228,16 @@ def main() -> None:
 
     add_repo_src_to_path()
 
+    # If --skip-all-metrics is set, skip all metric computations
+    if args.skip_all_metrics:
+        args.skip_embeddings = True
+        args.skip_ndvi = True
+        args.skip_mndwi = True
+        args.skip_ndbi = True
+        args.skip_bsi = True
+        args.skip_population = True
+        args.skip_pollution = True
+
     from olmoearth_change.pipeline import AnalysisConfig, run_analysis
 
     config = AnalysisConfig(
@@ -216,6 +265,11 @@ def main() -> None:
         include_historical_imagery=args.enable_historical_imagery,
         save_composites=not args.no_save_composites,
         save_embedding_change_rasters=not args.skip_change_rasters,
+        include_embeddings=not args.skip_embeddings,
+        include_ndvi=not args.skip_ndvi,
+        include_mndwi=not args.skip_mndwi,
+        include_ndbi=not args.skip_ndbi,
+        include_bsi=not args.skip_bsi,
     )
 
     summary = run_analysis(config)

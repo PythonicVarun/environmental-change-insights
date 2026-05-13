@@ -104,6 +104,11 @@ class AnalysisConfig:
     include_historical_imagery: bool = True
     save_composites: bool = True
     save_embedding_change_rasters: bool = True
+    include_embeddings: bool = True
+    include_ndvi: bool = True
+    include_mndwi: bool = True
+    include_ndbi: bool = True
+    include_bsi: bool = True
 
     def __post_init__(self) -> None:
         if self.workers < 1:
@@ -471,23 +476,25 @@ def process_tile_year(
         except Exception:
             pass
 
-    embeddings = compute_embeddings(
-        composite=composite,
-        year=year,
-        model_name=config.model_name,
-        patch_size=config.patch_size,
-        crop_size=config.crop_size,
-        device_preference=config.device,
-    )
+    embeddings = None
+    if config.include_embeddings:
+        embeddings = compute_embeddings(
+            composite=composite,
+            year=year,
+            model_name=config.model_name,
+            patch_size=config.patch_size,
+            crop_size=config.crop_size,
+            device_preference=config.device,
+        )
     embedding_transform = transform * Affine.scale(config.patch_size)
 
     display_factor = config.patch_size * config.display_aggregation
     display_transform = transform * Affine.scale(display_factor)
 
-    ndvi_display = downsample_mean(ndvi(composite), display_factor)
-    mndwi_display = downsample_mean(mndwi(composite), display_factor)
-    ndbi_display = downsample_mean(ndbi(composite), display_factor)
-    bsi_display = downsample_mean(bsi(composite), display_factor)
+    ndvi_display = downsample_mean(ndvi(composite), display_factor) if config.include_ndvi else None
+    mndwi_display = downsample_mean(mndwi(composite), display_factor) if config.include_mndwi else None
+    ndbi_display = downsample_mean(ndbi(composite), display_factor) if config.include_ndbi else None
+    bsi_display = downsample_mean(bsi(composite), display_factor) if config.include_bsi else None
     population_display = None
     if config.include_population:
         population_display = fetch_population_display(
