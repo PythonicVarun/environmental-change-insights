@@ -1,0 +1,160 @@
+{
+  "metadata": {
+    "label": "Kolkata, West Bengal, IND",
+    "country_iso3": "IND",
+    "admin_level": "ADM2",
+    "state_name": "West Bengal",
+    "district_name": "Kolkata",
+    "area_sq_km": 91.36216017166919,
+    "generated_at_utc": "2026-05-16",
+    "workers_note": "workers>1 was requested with CUDA; using batched tile processing.",
+    "tile_display_cache_hits": 0,
+    "tile_display_cache_misses": 46,
+    "tile_display_cache_hit_rate": 0.0,
+    "coverage_sq_km": 85.816,
+    "coverage_percent": 93.929,
+    "tile_count": 24,
+    "partial_coverage": false,
+    "ward_overlay_available": false,
+    "ward_count": 0
+  },
+  "config": {
+    "base_year": 2025,
+    "periods": [
+      10
+    ],
+    "model_name": "base",
+    "tile_size_m": 2560,
+    "workers": 4,
+    "include_population": false,
+    "include_pollution": false,
+    "include_historical_imagery": false,
+    "display_cell_size_m": 160
+  },
+  "scene_counts": {
+    "2015": 22,
+    "2025": 1844
+  },
+  "feature_count": 3512,
+  "periods": {
+    "10y": {
+      "metrics": {
+        "embedding_change_median": 0.011919,
+        "embedding_change_p95": 0.018825,
+        "vegetation_delta_mean": 0.250272,
+        "water_delta_mean": -0.260577,
+        "urban_delta_mean": -0.003494,
+        "bare_soil_delta_mean": 0.024577
+      },
+      "story_counts": {
+        "Water retreat or drying": 3302,
+        "Water gain or inundation": 165,
+        "Greening or crop intensification": 33,
+        "Mixed land-cover change": 12
+      },
+      "hotspots": [
+        {
+          "latitude": 22.564887,
+          "longitude": 88.342768,
+          "embedding_change": 0.032389,
+          "vegetation_delta": 0.359821,
+          "water_delta": -0.256829,
+          "urban_delta": -0.101472,
+          "bare_soil_delta": -0.051654,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_012"
+        },
+        {
+          "latitude": 22.552504,
+          "longitude": 88.274637,
+          "embedding_change": 0.032357,
+          "vegetation_delta": 0.063736,
+          "water_delta": -0.27132,
+          "urban_delta": 0.164851,
+          "bare_soil_delta": 0.134593,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_010"
+        },
+        {
+          "latitude": 22.573038,
+          "longitude": 88.403534,
+          "embedding_change": 0.030783,
+          "vegetation_delta": 0.418474,
+          "water_delta": -0.269735,
+          "urban_delta": -0.145266,
+          "bare_soil_delta": -0.107691,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_019"
+        },
+        {
+          "latitude": 22.543442,
+          "longitude": 88.314557,
+          "embedding_change": 0.02938,
+          "vegetation_delta": 0.072032,
+          "water_delta": -0.245428,
+          "urban_delta": 0.104883,
+          "bare_soil_delta": 0.132966,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_006"
+        },
+        {
+          "latitude": 22.530232,
+          "longitude": 88.339321,
+          "embedding_change": 0.028871,
+          "vegetation_delta": 0.202139,
+          "water_delta": -0.211513,
+          "urban_delta": -0.014005,
+          "bare_soil_delta": 0.023367,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_007"
+        },
+        {
+          "latitude": 22.518554,
+          "longitude": 88.353208,
+          "embedding_change": 0.028751,
+          "vegetation_delta": 0.3385,
+          "water_delta": -0.383017,
+          "urban_delta": 0.013751,
+          "bare_soil_delta": 0.044515,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_003"
+        },
+        {
+          "latitude": 22.541701,
+          "longitude": 88.350322,
+          "embedding_change": 0.027741,
+          "vegetation_delta": 0.219376,
+          "water_delta": -0.245153,
+          "urban_delta": 0.023943,
+          "bare_soil_delta": 0.027784,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_008"
+        },
+        {
+          "latitude": 22.515559,
+          "longitude": 88.365623,
+          "embedding_change": 0.027604,
+          "vegetation_delta": 0.273987,
+          "water_delta": -0.256148,
+          "urban_delta": -0.019933,
+          "bare_soil_delta": 0.002895,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_003"
+        }
+      ]
+    }
+  },
+  "historical_imagery": {
+    "available": false,
+    "available_years": [],
+    "years": {}
+  }
+}
