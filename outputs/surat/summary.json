@@ -1,0 +1,162 @@
+{
+  "metadata": {
+    "label": "Surat, Gujar\u0101t, IND",
+    "country_iso3": "IND",
+    "admin_level": "ADM2",
+    "state_name": "Gujar\u0101t",
+    "district_name": "Surat",
+    "area_sq_km": 4346.433228451321,
+    "generated_at_utc": "2026-05-18",
+    "workers_note": "workers>1 was requested with CUDA; using batched tile processing.",
+    "tile_display_cache_hits": 0,
+    "tile_display_cache_misses": 1526,
+    "tile_display_cache_hit_rate": 0.0,
+    "coverage_sq_km": 4346.433,
+    "coverage_percent": 100.0,
+    "tile_count": 763,
+    "partial_coverage": false,
+    "ward_overlay_available": false,
+    "ward_count": 0
+  },
+  "config": {
+    "base_year": 2025,
+    "periods": [
+      10
+    ],
+    "model_name": "tiny",
+    "tile_size_m": 2560,
+    "workers": 4,
+    "include_population": false,
+    "include_pollution": false,
+    "include_historical_imagery": false,
+    "display_cell_size_m": 160
+  },
+  "scene_counts": {
+    "2015": 2343,
+    "2025": 54269
+  },
+  "feature_count": 171780,
+  "periods": {
+    "10y": {
+      "metrics": {
+        "embedding_change_median": 0.002628,
+        "embedding_change_p95": 0.003843,
+        "vegetation_delta_mean": -0.447922,
+        "water_delta_mean": 0.525386,
+        "urban_delta_mean": 0.059571,
+        "bare_soil_delta_mean": 0.092411
+      },
+      "story_counts": {
+        "Water gain or inundation": 97568,
+        "Urban expansion replacing vegetation": 72292,
+        "Water retreat or drying": 1465,
+        "Greening or crop intensification": 292,
+        "Mixed land-cover change": 149,
+        "Bare-soil or industrial expansion": 14
+      },
+      "hotspots": [
+        {
+          "latitude": 21.467329,
+          "longitude": 73.006558,
+          "embedding_change": 0.015497,
+          "vegetation_delta": -0.893429,
+          "water_delta": 0.862215,
+          "urban_delta": 0.069143,
+          "bare_soil_delta": 0.086006,
+          "pollution_delta": null,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_693"
+        },
+        {
+          "latitude": 21.527952,
+          "longitude": 73.001099,
+          "embedding_change": 0.012395,
+          "vegetation_delta": -0.974794,
+          "water_delta": 0.757529,
+          "urban_delta": 0.264805,
+          "bare_soil_delta": 0.261531,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_747"
+        },
+        {
+          "latitude": 20.995521,
+          "longitude": 73.068288,
+          "embedding_change": 0.011715,
+          "vegetation_delta": -0.292462,
+          "water_delta": 0.56201,
+          "urban_delta": -0.56982,
+          "bare_soil_delta": -0.487795,
+          "pollution_delta": null,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_049"
+        },
+        {
+          "latitude": 21.081153,
+          "longitude": 72.64073,
+          "embedding_change": 0.010799,
+          "vegetation_delta": 0.038787,
+          "water_delta": 0.086455,
+          "urban_delta": -0.063956,
+          "bare_soil_delta": -0.119901,
+          "pollution_delta": null,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_104"
+        },
+        {
+          "latitude": 21.412849,
+          "longitude": 73.170874,
+          "embedding_change": 0.010763,
+          "vegetation_delta": -0.481994,
+          "water_delta": 0.58974,
+          "urban_delta": 0.307478,
+          "bare_soil_delta": 0.371756,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_581"
+        },
+        {
+          "latitude": 21.339138,
+          "longitude": 72.807802,
+          "embedding_change": 0.010543,
+          "vegetation_delta": -0.806927,
+          "water_delta": 0.75918,
+          "urban_delta": 0.223417,
+          "bare_soil_delta": 0.249281,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_448"
+        },
+        {
+          "latitude": 21.340946,
+          "longitude": 73.073052,
+          "embedding_change": 0.010288,
+          "vegetation_delta": 0.516595,
+          "water_delta": 0.294366,
+          "urban_delta": -0.451345,
+          "bare_soil_delta": -0.573265,
+          "pollution_delta": null,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_459"
+        },
+        {
+          "latitude": 21.468773,
+          "longitude": 73.006539,
+          "embedding_change": 0.009999,
+          "vegetation_delta": -0.90444,
+          "water_delta": 0.814352,
+          "urban_delta": 0.091657,
+          "bare_soil_delta": 0.126379,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_693"
+        }
+      ]
+    }
+  },
+  "historical_imagery": {
+    "available": false,
+    "available_years": [],
+    "years": {}
+  }
+}

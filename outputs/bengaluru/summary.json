@@ -1,0 +1,162 @@
+{
+  "metadata": {
+    "label": "Bangalore, Karn\u0101taka, IND",
+    "country_iso3": "IND",
+    "admin_level": "ADM2",
+    "state_name": "Karn\u0101taka",
+    "district_name": "Bangalore",
+    "area_sq_km": 2047.0411500486134,
+    "generated_at_utc": "2026-05-17",
+    "workers_note": "workers>1 was requested with CUDA; using batched tile processing.",
+    "tile_display_cache_hits": 746,
+    "tile_display_cache_misses": 0,
+    "tile_display_cache_hit_rate": 100.0,
+    "coverage_sq_km": 2047.041,
+    "coverage_percent": 100.0,
+    "tile_count": 373,
+    "partial_coverage": false,
+    "ward_overlay_available": true,
+    "ward_count": 798
+  },
+  "config": {
+    "base_year": 2025,
+    "periods": [
+      10
+    ],
+    "model_name": "tiny",
+    "tile_size_m": 2560,
+    "workers": 4,
+    "include_population": false,
+    "include_pollution": false,
+    "include_historical_imagery": false,
+    "display_cell_size_m": 160
+  },
+  "scene_counts": {
+    "2015": 1940,
+    "2025": 12786
+  },
+  "feature_count": 81218,
+  "periods": {
+    "10y": {
+      "metrics": {
+        "embedding_change_median": 0.003683,
+        "embedding_change_p95": 0.005643,
+        "vegetation_delta_mean": -0.447416,
+        "water_delta_mean": 0.425521,
+        "urban_delta_mean": 0.128085,
+        "bare_soil_delta_mean": 0.130053
+      },
+      "story_counts": {
+        "Urban expansion replacing vegetation": 52139,
+        "Water gain or inundation": 28533,
+        "Water retreat or drying": 327,
+        "Mixed land-cover change": 144,
+        "Greening or crop intensification": 73,
+        "Bare-soil or industrial expansion": 2
+      },
+      "hotspots": [
+        {
+          "latitude": 12.748812,
+          "longitude": 77.727913,
+          "embedding_change": 0.023807,
+          "vegetation_delta": -1.002195,
+          "water_delta": 0.982421,
+          "urban_delta": 0.165843,
+          "bare_soil_delta": 0.151226,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_038"
+        },
+        {
+          "latitude": 12.750257,
+          "longitude": 77.727929,
+          "embedding_change": 0.020901,
+          "vegetation_delta": -0.777191,
+          "water_delta": 0.932788,
+          "urban_delta": 0.073347,
+          "bare_soil_delta": 0.004442,
+          "pollution_delta": null,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_052"
+        },
+        {
+          "latitude": 13.152222,
+          "longitude": 77.713136,
+          "embedding_change": 0.020878,
+          "vegetation_delta": -0.93945,
+          "water_delta": 0.934538,
+          "urban_delta": 0.067354,
+          "bare_soil_delta": 0.075779,
+          "pollution_delta": null,
+          "story": "Water gain or inundation",
+          "tile_id": "tile_342"
+        },
+        {
+          "latitude": 12.934453,
+          "longitude": 77.666553,
+          "embedding_change": 0.017152,
+          "vegetation_delta": 0.744874,
+          "water_delta": -0.367191,
+          "urban_delta": -0.37326,
+          "bare_soil_delta": -0.315789,
+          "pollution_delta": null,
+          "story": "Water retreat or drying",
+          "tile_id": "tile_180"
+        },
+        {
+          "latitude": 12.780331,
+          "longitude": 77.754759,
+          "embedding_change": 0.016332,
+          "vegetation_delta": -0.618965,
+          "water_delta": 0.58897,
+          "urban_delta": 0.126509,
+          "bare_soil_delta": 0.018519,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_067"
+        },
+        {
+          "latitude": 12.707321,
+          "longitude": 77.686247,
+          "embedding_change": 0.015728,
+          "vegetation_delta": -0.919327,
+          "water_delta": 0.753452,
+          "urban_delta": 0.421522,
+          "bare_soil_delta": 0.38754,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_022"
+        },
+        {
+          "latitude": 12.724888,
+          "longitude": 77.664346,
+          "embedding_change": 0.015728,
+          "vegetation_delta": -0.930711,
+          "water_delta": 0.786468,
+          "urban_delta": 0.364712,
+          "bare_soil_delta": 0.30477,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_021"
+        },
+        {
+          "latitude": 13.06711,
+          "longitude": 77.697459,
+          "embedding_change": 0.015374,
+          "vegetation_delta": -0.840778,
+          "water_delta": 0.843452,
+          "urban_delta": 0.092255,
+          "bare_soil_delta": 0.027781,
+          "pollution_delta": null,
+          "story": "Urban expansion replacing vegetation",
+          "tile_id": "tile_284"
+        }
+      ]
+    }
+  },
+  "historical_imagery": {
+    "available": false,
+    "available_years": [],
+    "years": {}
+  }
+}
