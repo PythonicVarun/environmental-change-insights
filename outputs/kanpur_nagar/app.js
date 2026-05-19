@@ -1634,7 +1634,7 @@ async function loadData() {
     );
     const [summary, overlay, boundary, wardOverlay, waybackConfig] = await Promise.all([
         fetch("summary.json").then((response) => response.json()),
-        fetch("overlay.geojson").then((response) => response.json()),
+        fetch("https://github.com/PythonicVarun/olmoearth-change-insights/releases/download/assets-2026-05-19/kanpur_nagar-overlay.geojson").then((response) => response.json()),
         fetch("boundary.geojson")
             .then((response) => (response.ok ? response.json() : null))
             .catch(() => null),
