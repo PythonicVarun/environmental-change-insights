@@ -83,6 +83,7 @@ class AnalysisConfig:
     country_iso3: str = "IND"
     state_name: str | None = None
     district_name: str | None = None
+    city_name: str | None = None
     output_dir: Path = Path("outputs/latest")
     cache_dir: Path = Path(".cache")
     model_name: str = "tiny"
@@ -111,6 +112,12 @@ class AnalysisConfig:
     include_bsi: bool = True
 
     def __post_init__(self) -> None:
+        if self.city_name and self.district_name:
+            raise ValueError("Provide either city_name or district_name, not both.")
+        if not any([self.state_name, self.district_name, self.city_name]):
+            raise ValueError(
+                "Provide at least one of state_name, district_name, or city_name."
+            )
         if self.workers < 1:
             raise ValueError("workers must be >= 1.")
         if self.tile_size_m % self.resolution_m != 0:
@@ -155,6 +162,7 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         cache_dir=config.cache_dir,
         state_name=config.state_name,
         district_name=config.district_name,
+        city_name=config.city_name,
     )
     metadata = {
         "label": boundary.label,
@@ -162,6 +170,7 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         "admin_level": boundary.admin_level,
         "state_name": boundary.state_name,
         "district_name": boundary.district_name,
+        "city_name": boundary.city_name,
         "area_sq_km": boundary.area_sq_km,
         "generated_at_utc": date.today().strftime("%Y-%m-%d"),
     }
@@ -299,7 +308,7 @@ def run_analysis(config: AnalysisConfig) -> dict[str, Any]:
         config.max_tiles is not None and metadata["coverage_percent"] < 99.0
     )
     ward_overlay = None
-    if config.include_ward_overlay and boundary.district_name:
+    if config.include_ward_overlay and (boundary.district_name or boundary.city_name):
         try:
             ward_overlay = build_ward_overlay(boundary, overlay, config)
         except Exception as exc:
@@ -433,7 +442,7 @@ def process_tile_year(
             composite, transform, crs = read_raster(composite_path)
             scene_count = int(read_tags(composite_path).get("scene_count", "0"))
             fetch_raster = False
-        except:
+        except Exception:
             composite_path.unlink(missing_ok=True)
 
     if fetch_raster:
@@ -1970,6 +1979,7 @@ def write_boundary_geojson(boundary: ResolvedBoundary, path: Path) -> None:
                 "admin_level": boundary.admin_level,
                 "state_name": boundary.state_name,
                 "district_name": boundary.district_name,
+                "city_name": boundary.city_name,
                 "area_sq_km": boundary.area_sq_km,
                 "geometry": boundary.geometry,
             }

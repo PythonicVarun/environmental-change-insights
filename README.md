@@ -1,13 +1,13 @@
 # OlmoEarth Change Overlay
 
-This project builds district or state level change layers from **OlmoEarth embeddings** and **Sentinel-2 annual composites**, adds **WorldPop population change**, then exports:
+This project builds city, district, or state level change layers from **OlmoEarth embeddings** and **Sentinel-2 annual composites**, adds **WorldPop population change**, then exports:
 
 - `overlay.geojson` for map overlays
 - `summary.json` for downstream apps or newsroom pipelines
 - `report.md` for a quick written brief
 - `ui/` static files for an interactive Leaflet overlay
 
-The generator is designed around **India** by default because the request was framed in terms of `state` and `district`, but the boundary lookup itself works with any `geoBoundaries` ISO3 country code that has ADM1 and ADM2 coverage.
+The generator is designed around **India** by default. State and district lookups use `geoBoundaries`, and city lookups use OpenStreetMap geocoding with an optional `--state` hint for disambiguation.
 
 ## Setup
 
@@ -23,6 +23,18 @@ uv run python scripts/generate_change_data.py \
   --state "Uttar Pradesh" \
   --district "Gautam Buddha Nagar" \
   --output-dir outputs/noida \
+  --base-year 2025 \
+  --periods 1 5 10
+```
+
+## Generate One City
+
+```bash
+uv run python scripts/generate_change_data.py \
+  --country IND \
+  --state "Karnataka" \
+  --city "Bengaluru" \
+  --output-dir outputs/bengaluru \
   --base-year 2025 \
   --periods 1 5 10
 ```
@@ -80,7 +92,7 @@ Cache effectiveness is reported in `summary.json` under metadata fields:
 - `tile_display_cache_misses`
 - `tile_display_cache_hit_rate`
 
-For a boundary-shaped final map, do not use `--max-tiles`. That flag intentionally processes only the top overlap tiles, which is useful for fast smoke tests but not for a complete district/state overlay.
+For a boundary-shaped final map, do not use `--max-tiles`. That flag intentionally processes only the top overlap tiles, which is useful for fast smoke tests but not for a complete city/district/state overlay.
 
 ## Speed Up Large Runs
 
@@ -174,13 +186,13 @@ uv run python scripts/run_india_news_scan.py \
   --max-tiles 1
 ```
 
-That script keeps the run intentionally small and is meant for newsroom scouting or rapid prototyping. For a full district analysis, run `generate_change_data.py` without `--max-tiles`.
+That script keeps the run intentionally small and is meant for newsroom scouting or rapid prototyping. For a full city or district analysis, run `generate_change_data.py` without `--max-tiles`.
 
 ## What The Pipeline Computes
 
 For each requested year snapshot, the pipeline:
 
-1. Resolves the target district/state boundary from geoBoundaries.
+1. Resolves the target state or district boundary from geoBoundaries, or the target city boundary from OpenStreetMap geocoding when `--city` is used.
 2. Tiles the area in the local UTM CRS.
 3. Downloads a cloud-median Sentinel-2 L2A annual composite from Microsoft Planetary Computer.
 4. Computes OlmoEarth embeddings locally with the open `olmoearth-pretrain` model.
@@ -190,7 +202,7 @@ For each requested year snapshot, the pipeline:
    useful for aerosol loading changes but is not direct PM2.5 or gas concentration.
 7. Downloads WorldPop 1km constrained population rasters for supported years (`2015`-`2030`)
    and allocates those counts into the display cells.
-8. Optionally resolves OSM ward-like administrative polygons for the selected district and
+8. Optionally resolves OSM ward-like administrative polygons for the selected district or city and
    aggregates cell metrics into ward polygons.
 9. Writes overlay cells with per-period properties like:
    `embedding_change_5y`, `vegetation_delta_5y`, `water_delta_5y`, `urban_delta_5y`,
