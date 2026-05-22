@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("configs/target.json"),
+        default=Path("config/target.json"),
         help="JSON file listing state/district/city targets.",
     )
     parser.add_argument(
