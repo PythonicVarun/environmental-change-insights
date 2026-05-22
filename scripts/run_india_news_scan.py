@@ -15,8 +15,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("configs/target.json"),
-        help="JSON file listing state/district targets.",
+        default=Path("config/target.json"),
+        help="JSON file listing state/district/city targets.",
     )
     parser.add_argument(
         "--output-dir",
@@ -42,13 +42,18 @@ def main() -> None:
     summaries = []
 
     for target in targets:
-        label = f"{target['district']}, {target['state']}"
+        location_name = target.get("city") or target.get("district") or target["state"]
+        label_parts = [location_name]
+        if target.get("state") and target["state"] != location_name:
+            label_parts.append(target["state"])
+        label = ", ".join(label_parts)
         output_dir = args.output_dir / slugify(label)
         summary = run_analysis(
             AnalysisConfig(
                 country_iso3=target.get("country", "IND"),
-                state_name=target["state"],
-                district_name=target["district"],
+                state_name=target.get("state"),
+                district_name=target.get("district"),
+                city_name=target.get("city"),
                 output_dir=output_dir,
                 model_name=args.model,
                 base_year=args.base_year,

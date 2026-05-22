@@ -12,6 +12,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--state", help="State / ADM1 name.")
     parser.add_argument("--district", help="District / ADM2 name.")
+    parser.add_argument("--city", help="City name for whole-city generation.")
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -133,6 +134,7 @@ def main() -> None:
         country_iso3=args.country,
         state_name=args.state,
         district_name=args.district,
+        city_name=args.city,
         output_dir=args.output_dir,
         cache_dir=args.cache_dir,
         model_name=args.model,
@@ -165,7 +167,7 @@ def main() -> None:
     print(f"\nWrote outputs to {args.output_dir}")
     print(f"Serve {args.output_dir} with a local web server before opening the UI.")
     print("Example: cd OUTPUT_DIR && python -m http.server 8000")
-    print(f"Then open http://localhost:8000/ui/ or use ?basemap=none.")
+    print("Then open http://localhost:8000/ui/ or use ?basemap=none.")
 
 
 if __name__ == "__main__":

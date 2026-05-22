@@ -64,6 +64,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--state", help="State / ADM1 name.")
     parser.add_argument("--district", help="District / ADM2 name.")
+    parser.add_argument("--city", help="City name for whole-city generation.")
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -244,6 +245,7 @@ def main() -> None:
         country_iso3=args.country,
         state_name=args.state,
         district_name=args.district,
+        city_name=args.city,
         output_dir=args.output_dir,
         cache_dir=args.cache_dir,
         model_name=args.model,

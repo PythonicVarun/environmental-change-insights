@@ -25,6 +25,7 @@ class ResolvedBoundary:
     admin_level: str
     state_name: str | None
     district_name: str | None
+    city_name: str | None
     label: str
     geometry: BaseGeometry
     area_sq_km: float
@@ -42,6 +43,22 @@ def _cache_path(cache_dir: Path, country_iso3: str, adm_level: str) -> Path:
         cache_dir
         / "geoboundaries"
         / f"{country_iso3.upper()}_{adm_level.upper()}.geojson"
+    )
+
+
+def _city_cache_path(
+    cache_dir: Path,
+    country_iso3: str,
+    state_name: str | None,
+    city_name: str,
+) -> Path:
+    state_part = _normalize_name(state_name or "state")
+    city_part = _normalize_name(city_name)
+    return (
+        cache_dir
+        / "cities"
+        / "osm"
+        / f"{country_iso3.upper()}_{state_part}_{city_part}.geojson"
     )
 
 
@@ -102,14 +119,167 @@ def _resolve_exact_or_close(
     raise ValueError(f"Could not find a boundary matching {value!r}.")
 
 
+def _row_text(row: pd.Series, columns: tuple[str, ...]) -> str | None:
+    for column in columns:
+        if column not in row.index:
+            continue
+        value = row[column]
+        if pd.isna(value):
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def _city_queries(
+    *,
+    country_iso3: str,
+    state_name: str | None,
+    city_name: str,
+) -> list[dict[str, str] | str]:
+    queries: list[dict[str, str] | str] = []
+    structured_query: dict[str, str] = {"city": city_name, "country": country_iso3}
+    if state_name:
+        structured_query["state"] = state_name
+    queries.append(structured_query)
+
+    string_parts = [city_name]
+    if state_name:
+        string_parts.append(state_name)
+    string_parts.append(country_iso3)
+    queries.append(", ".join(string_parts))
+
+    if state_name:
+        queries.append({"city": city_name, "state": state_name})
+        queries.append(f"{city_name}, {state_name}")
+
+    queries.append({"city": city_name})
+    queries.append(city_name)
+    return queries
+
+
+def _city_candidate_label(row: pd.Series, fallback: str) -> str:
+    return _row_text(row, ("display_name", "name")) or fallback
+
+
+def _resolve_city_boundary(
+    *,
+    cache_dir: Path,
+    country_iso3: str,
+    city_name: str,
+    state_name: str | None,
+) -> ResolvedBoundary:
+    cache_path = _city_cache_path(cache_dir, country_iso3, state_name, city_name)
+    if cache_path.exists():
+        city_matches = gpd.read_file(cache_path).to_crs("EPSG:4326")
+    else:
+        ox.settings.use_cache = True
+        ox.settings.cache_folder = str((cache_dir / "osmnx").resolve())
+        city_matches = gpd.GeoDataFrame()
+        for query in _city_queries(
+            country_iso3=country_iso3,
+            state_name=state_name,
+            city_name=city_name,
+        ):
+            try:
+                city_matches = ox.geocode_to_gdf(query, which_result=None)
+            except Exception:
+                continue
+            if not city_matches.empty:
+                break
+        if city_matches.empty:
+            raise ValueError(f"Could not find a city boundary matching {city_name!r}.")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        city_matches.to_file(cache_path, driver="GeoJSON")
+
+    city_matches = city_matches.reset_index(drop=True).to_crs("EPSG:4326")
+    city_matches = city_matches[
+        city_matches.geometry.geom_type.isin(["Polygon", "MultiPolygon"])
+    ].copy()
+    if city_matches.empty:
+        raise ValueError(
+            f"City boundary for {city_name!r} did not include a polygon geometry."
+        )
+
+    normalized_city = _normalize_name(city_name)
+    city_matches["__norm_name"] = city_matches.apply(
+        lambda row: _normalize_name(
+            _row_text(row, ("name", "city", "display_name")) or city_name
+        ),
+        axis=1,
+    )
+    exact = city_matches[city_matches["__norm_name"] == normalized_city]
+    if not exact.empty:
+        city_matches = exact
+
+    if "addresstype" in city_matches.columns:
+        preferred = city_matches[
+            city_matches["addresstype"]
+            .astype("string")
+            .str.lower()
+            .isin({"city", "town", "municipality", "administrative"})
+        ]
+        if not preferred.empty:
+            city_matches = preferred
+
+    if len(city_matches) > 1:
+        candidate_names = ", ".join(
+            sorted(
+                {
+                    _city_candidate_label(row, city_name)
+                    for _, row in city_matches.iterrows()
+                }
+            )
+        )
+        raise ValueError(
+            f"City match for {city_name!r} is ambiguous. Candidates: {candidate_names}"
+        )
+
+    row = city_matches.iloc[0]
+    geometry = row.geometry
+    matched_city_name = _row_text(row, ("name", "city")) or city_name
+    matched_state_name = _row_text(row, ("state",)) or state_name
+    label_parts = [matched_city_name]
+    if matched_state_name:
+        label_parts.append(matched_state_name)
+    label_parts.append(country_iso3)
+    area_sq_km = (
+        gpd.GeoSeries([geometry], crs="EPSG:4326")
+        .to_crs(_local_equal_area_crs())
+        .area.iloc[0]
+        / 1_000_000.0
+    )
+    return ResolvedBoundary(
+        country_iso3=country_iso3,
+        admin_level="CITY",
+        state_name=matched_state_name,
+        district_name=None,
+        city_name=matched_city_name,
+        label=", ".join(label_parts),
+        geometry=geometry,
+        area_sq_km=float(area_sq_km),
+    )
+
+
 def resolve_admin_boundary(
     *,
     country_iso3: str,
     cache_dir: Path,
     state_name: str | None = None,
     district_name: str | None = None,
+    city_name: str | None = None,
 ) -> ResolvedBoundary:
     country_iso3 = country_iso3.upper()
+    if city_name and district_name:
+        raise ValueError("Please provide either district_name or city_name, not both.")
+    if city_name:
+        return _resolve_city_boundary(
+            cache_dir=cache_dir,
+            country_iso3=country_iso3,
+            city_name=city_name,
+            state_name=state_name,
+        )
     if district_name:
         adm2 = _load_boundary_layer(cache_dir, country_iso3, "ADM2")
         district_matches = _resolve_exact_or_close(adm2, "__norm_name", district_name)
@@ -156,6 +326,7 @@ def resolve_admin_boundary(
             admin_level="ADM2",
             state_name=matched_state_name or state_name,
             district_name=str(row["shapeName"]),
+            city_name=None,
             label=", ".join(label_parts),
             geometry=geometry,
             area_sq_km=float(area_sq_km),
@@ -182,12 +353,13 @@ def resolve_admin_boundary(
             admin_level="ADM1",
             state_name=str(row["shapeName"]),
             district_name=None,
+            city_name=None,
             label=f"{row['shapeName']}, {country_iso3}",
             geometry=geometry,
             area_sq_km=float(area_sq_km),
         )
 
-    raise ValueError("Please provide at least a state_name or district_name.")
+    raise ValueError("Please provide at least a state_name, district_name, or city_name.")
 
 
 def _local_equal_area_crs() -> str:
@@ -199,14 +371,14 @@ def resolve_ward_boundaries(
     boundary: ResolvedBoundary,
     cache_dir: Path,
 ) -> gpd.GeoDataFrame:
-    """Resolve ward-like administrative polygons inside a district boundary.
+    """Resolve ward-like administrative polygons inside a district or city boundary.
 
     This is best-effort and currently uses OSM administrative polygons as the
     source. If no reasonable ward-like polygons are available, an empty frame is
     returned so the rest of the pipeline can fall back to cell overlays.
     """
 
-    if not boundary.district_name:
+    if not boundary.district_name and not boundary.city_name:
         return gpd.GeoDataFrame(
             columns=["ward_name", "admin_level", "geometry"], crs="EPSG:4326"
         )
@@ -229,12 +401,14 @@ def resolve_ward_boundaries(
 
 def _ward_cache_path(cache_dir: Path, boundary: ResolvedBoundary) -> Path:
     state_part = _normalize_name(boundary.state_name or "state")
-    district_part = _normalize_name(boundary.district_name or boundary.label)
+    boundary_part = _normalize_name(
+        boundary.city_name or boundary.district_name or boundary.label
+    )
     return (
         cache_dir
         / "wards"
         / "osm"
-        / f"{boundary.country_iso3.upper()}_{state_part}_{district_part}.geojson"
+        / f"{boundary.country_iso3.upper()}_{state_part}_{boundary_part}.geojson"
     )
 
 
@@ -330,9 +504,10 @@ def _download_osm_ward_boundaries(
 
     district_norm = _normalize_name(boundary.district_name or "")
     state_norm = _normalize_name(boundary.state_name or "")
+    city_norm = _normalize_name(boundary.city_name or "")
     features_proj["ward_norm_name"] = features_proj["ward_name"].map(_normalize_name)
     features_proj = features_proj[
-        ~features_proj["ward_norm_name"].isin({district_norm, state_norm})
+        ~features_proj["ward_norm_name"].isin({district_norm, state_norm, city_norm})
     ].copy()
     if features_proj.empty:
         return gpd.GeoDataFrame(
