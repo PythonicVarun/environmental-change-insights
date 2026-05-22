@@ -187,7 +187,7 @@ function humanizeLocationSlug(slug) {
 const fallbackLocationLabel =
     humanizeLocationSlug(inferLocationSlug()) || "Location";
 
-const map = L.map("map", { zoomControl: true, preferCanvas: true });
+const map = L.map("map", { zoomControl: true, preferCanvas: true, zoomSnap: 0, zoomDelta: 0.5 });
 map.createPane("historicalPane");
 map.getPane("historicalPane").style.zIndex = 250;
 map.getPane("historicalPane").style.pointerEvents = "none";
