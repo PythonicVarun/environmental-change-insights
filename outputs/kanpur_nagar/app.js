@@ -662,21 +662,28 @@ function computeBoundsByProperty(features) {
     for (const metric of metricOptions) {
         for (const period of state.periods) {
             const key = `${metric.key}_${period}`;
-            const values = features
-                .map((feature) => feature.properties[key])
-                .filter(
-                    (value) =>
-                        value !== null &&
-                        value !== undefined &&
-                        !Number.isNaN(value),
-                );
-            if (!values.length) {
+            let min = null;
+            let max = null;
+            for (const feature of features) {
+                const value = feature.properties[key];
+                if (
+                    value === null ||
+                    value === undefined ||
+                    Number.isNaN(value)
+                ) {
+                    continue;
+                }
+                if (min === null || value < min) {
+                    min = value;
+                }
+                if (max === null || value > max) {
+                    max = value;
+                }
+            }
+            if (min === null || max === null) {
                 continue;
             }
-            propertyBounds[key] = {
-                min: Math.min(...values),
-                max: Math.max(...values),
-            };
+            propertyBounds[key] = { min, max };
         }
     }
     return propertyBounds;
