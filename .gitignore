@@ -3,3 +3,5 @@ outputs/jaipur/overlay.geojson
 outputs/surat/overlay.geojson
 outputs/kanpur_nagar/overlay.geojson
 outputs/chengalputtu/overlay.geojson
+.venv/
+.playwright*/
