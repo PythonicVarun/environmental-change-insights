@@ -1,0 +1,71 @@
+{
+  "bbox": [
+    76.65104,
+    28.205010829284962,
+    77.24201,
+    28.54144
+  ],
+  "center": [
+    76.946525,
+    28.373225414642484
+  ],
+  "featureCount": 49392,
+  "boundsByProperty": {
+    "row": {
+      "min": 0.0,
+      "max": 15.0
+    },
+    "col": {
+      "min": 0.0,
+      "max": 15.0
+    },
+    "base_year": {
+      "min": 2025.0,
+      "max": 2025.0
+    },
+    "scene_count_base_year": {
+      "min": 51.0,
+      "max": 104.0
+    },
+    "embedding_change_5y": {
+      "min": 0.001004,
+      "max": 0.017937
+    },
+    "vegetation_delta_5y": {
+      "min": -1.100297,
+      "max": 0.772019
+    },
+    "water_delta_5y": {
+      "min": -1.044968,
+      "max": 1.39868
+    },
+    "urban_delta_5y": {
+      "min": -0.585403,
+      "max": 0.935498
+    },
+    "bare_soil_delta_5y": {
+      "min": -0.735348,
+      "max": 0.99829
+    },
+    "pollution_delta_5y": {
+      "min": 0.182,
+      "max": 0.22168
+    },
+    "population_base_5y": {
+      "min": 0.0,
+      "max": 752.945007
+    },
+    "population_reference_5y": {
+      "min": 0.0,
+      "max": 701.586426
+    },
+    "population_delta_5y": {
+      "min": 0.0,
+      "max": 51.358582
+    },
+    "population_pct_change_5y": {
+      "min": 0.0,
+      "max": 70.069354
+    }
+  }
+}

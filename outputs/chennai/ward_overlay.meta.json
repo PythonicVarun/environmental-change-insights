@@ -1,0 +1,43 @@
+{
+  "bbox": [
+    80.18578619999997,
+    12.967519761345642,
+    80.3036964,
+    13.147862834943377
+  ],
+  "center": [
+    80.24474129999999,
+    13.057691298144508
+  ],
+  "featureCount": 114,
+  "boundsByProperty": {
+    "admin_level": {
+      "min": 9.0,
+      "max": 10.0
+    },
+    "coverage_percent": {
+      "min": 99.999834,
+      "max": 100.0
+    },
+    "embedding_change_10y": {
+      "min": 0.012563,
+      "max": 0.056067
+    },
+    "vegetation_delta_10y": {
+      "min": -0.60379,
+      "max": 0.367602
+    },
+    "water_delta_10y": {
+      "min": -0.541156,
+      "max": 0.546218
+    },
+    "urban_delta_10y": {
+      "min": -0.138526,
+      "max": 0.2852
+    },
+    "bare_soil_delta_10y": {
+      "min": -0.17747,
+      "max": 0.256105
+    }
+  }
+}

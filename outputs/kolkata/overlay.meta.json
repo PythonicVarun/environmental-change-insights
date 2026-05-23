@@ -1,0 +1,51 @@
+{
+  "bbox": [
+    88.27358,
+    22.49899,
+    88.41006,
+    22.614530015661717
+  ],
+  "center": [
+    88.34182,
+    22.55676000783086
+  ],
+  "featureCount": 3512,
+  "boundsByProperty": {
+    "row": {
+      "min": 0.0,
+      "max": 15.0
+    },
+    "col": {
+      "min": 0.0,
+      "max": 15.0
+    },
+    "base_year": {
+      "min": 2025.0,
+      "max": 2025.0
+    },
+    "scene_count_base_year": {
+      "min": 79.0,
+      "max": 81.0
+    },
+    "embedding_change_10y": {
+      "min": 0.002189,
+      "max": 0.009112
+    },
+    "vegetation_delta_10y": {
+      "min": -0.41591,
+      "max": 0.716577
+    },
+    "water_delta_10y": {
+      "min": -0.486035,
+      "max": 0.725116
+    },
+    "urban_delta_10y": {
+      "min": -0.537555,
+      "max": 0.17863
+    },
+    "bare_soil_delta_10y": {
+      "min": -0.309496,
+      "max": 0.16013
+    }
+  }
+}

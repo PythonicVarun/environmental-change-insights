@@ -1,0 +1,63 @@
+{
+  "bbox": [
+    80.144856,
+    13.000972275977745,
+    80.1894448,
+    13.03393343452586
+  ],
+  "center": [
+    80.1671504,
+    13.017452855251802
+  ],
+  "featureCount": 4,
+  "boundsByProperty": {
+    "admin_level": {
+      "min": 10.0,
+      "max": 10.0
+    },
+    "coverage_percent": {
+      "min": 99.999982,
+      "max": 100.0
+    },
+    "embedding_change_10y": {
+      "min": 0.007428,
+      "max": 0.009088
+    },
+    "vegetation_delta_10y": {
+      "min": -0.1768,
+      "max": 0.022842
+    },
+    "water_delta_10y": {
+      "min": -0.154265,
+      "max": 0.048351
+    },
+    "urban_delta_10y": {
+      "min": 0.067375,
+      "max": 0.129635
+    },
+    "bare_soil_delta_10y": {
+      "min": 0.077065,
+      "max": 0.134667
+    },
+    "pollution_delta_10y": {
+      "min": 0.16201,
+      "max": 0.173579
+    },
+    "population_base_10y": {
+      "min": 7503.696891,
+      "max": 33426.415635
+    },
+    "population_reference_10y": {
+      "min": 7180.392679,
+      "max": 31928.300949
+    },
+    "population_delta_10y": {
+      "min": 323.304213,
+      "max": 1498.114723
+    },
+    "population_pct_change_10y": {
+      "min": 4.487598,
+      "max": 4.69564
+    }
+  }
+}

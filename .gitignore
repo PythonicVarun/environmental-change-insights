@@ -5,3 +5,6 @@ outputs/kanpur_nagar/overlay.geojson
 outputs/chengalputtu/overlay.geojson
 .venv/
 .playwright*/
+outputs/**/_overlay_dl.geojson
+*.png
+serve_range.py
